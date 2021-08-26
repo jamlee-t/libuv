@@ -426,7 +426,7 @@ struct uv_shutdown_s {
   UV_SHUTDOWN_PRIVATE_FIELDS
 };
 
-
+// JAMLEE: 定义 handle 的非平台特定的字段
 #define UV_HANDLE_FIELDS                                                      \
   /* public */                                                                \
   void* data;                                                                 \

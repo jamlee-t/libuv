@@ -756,6 +756,7 @@ int uv_loop_configure(uv_loop_t* loop, uv_loop_option option, ...) {
 }
 
 
+// JAMLEE: 默认的内置全局变量
 static uv_loop_t default_loop_struct;
 static uv_loop_t* default_loop_ptr;
 

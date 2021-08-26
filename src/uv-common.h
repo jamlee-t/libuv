@@ -303,6 +303,7 @@ void uv__threadpool_cleanup(void);
 # define uv__handle_platform_init(h) ((h)->next_closing = NULL)
 #endif
 
+// JAMLEE: 定义公用的 handle 初始化函数。在子类的handleO_init调用。
 #define uv__handle_init(loop_, h, type_)                                      \
   do {                                                                        \
     (h)->loop = (loop_);                                                      \

@@ -281,6 +281,7 @@ typedef struct {
   uv_udp_send_cb send_cb;                                                     \
   uv_buf_t bufsml[4];                                                         \
 
+// JAMLEE: 定义 handle 的平台特定字段
 #define UV_HANDLE_PRIVATE_FIELDS                                              \
   uv_handle_t* next_closing;                                                  \
   unsigned int flags;                                                         \

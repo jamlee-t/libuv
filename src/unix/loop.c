@@ -47,6 +47,8 @@ int uv_loop_init(uv_loop_t* loop) {
     goto fail_metrics_mutex_init;
 
   heap_init((struct heap*) &loop->timer_heap);
+
+  // 初始化 handle 的队列们
   QUEUE_INIT(&loop->wq);
   QUEUE_INIT(&loop->idle_handles);
   QUEUE_INIT(&loop->async_handles);

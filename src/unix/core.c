@@ -360,12 +360,13 @@ static int uv__loop_alive(const uv_loop_t* loop) {
          loop->closing_handles != NULL;
 }
 
-
+// JAMLEE: 是否 uv_loop 中还有未处理的事情
 int uv_loop_alive(const uv_loop_t* loop) {
     return uv__loop_alive(loop);
 }
 
 
+// JAMLEE: uv_run 启动 uv_loop 的程序, 和图对应
 int uv_run(uv_loop_t* loop, uv_run_mode mode) {
   int timeout;
   int r;
@@ -379,13 +380,15 @@ int uv_run(uv_loop_t* loop, uv_run_mode mode) {
     uv__update_time(loop);
     uv__run_timers(loop);
     ran_pending = uv__run_pending(loop);
-    uv__run_idle(loop);
+    uv__run_idle(loop); // JAMLEE: 将底层的 handle 都运行起来
     uv__run_prepare(loop);
 
+    // JAMLEE: 这里有挂起时长设置。这个 timeout 的作用主要是使 epoll_pwait 能够有一个合理的超时时间
     timeout = 0;
     if ((mode == UV_RUN_ONCE && !ran_pending) || mode == UV_RUN_DEFAULT)
       timeout = uv_backend_timeout(loop);
 
+    // JAMLEE: 这里有阻塞操作，会使得 cpu 挂起，以免一直占用 cpu。查看：Linux 阻塞与唤醒实现原理 https://smartkeyerror.com/Linux-Blocking
     uv__io_poll(loop, timeout);
 
     /* Run one final update on the provider_idle_time in case uv__io_poll
@@ -398,6 +401,7 @@ int uv_run(uv_loop_t* loop, uv_run_mode mode) {
     uv__run_check(loop);
     uv__run_closing_handles(loop);
 
+    // JAMLEE: 在 UV_RUN_ONCE 模式下，因为循环会直接跳出，不会再次进入循环处理定时器，所以需要在这种模式下，需要处理额外处理定时器。
     if (mode == UV_RUN_ONCE) {
       /* UV_RUN_ONCE implies forward progress: at least one callback must have
        * been invoked when it returns. uv__io_poll() can return without doing
@@ -416,6 +420,7 @@ int uv_run(uv_loop_t* loop, uv_run_mode mode) {
       break;
   }
 
+  // JAMLEE: 手动关闭事件循环的标志
   /* The if statement lets gcc compile it to a conditional store. Avoids
    * dirtying a cache line.
    */
