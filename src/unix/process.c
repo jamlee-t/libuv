@@ -341,6 +341,7 @@ static void uv__process_child_init(const uv_process_options_t* options,
 #endif
 
 
+// JAMLEE: 产生一个新的进程。
 int uv_spawn(uv_loop_t* loop,
              uv_process_t* process,
              const uv_process_options_t* options) {
@@ -352,7 +353,7 @@ int uv_spawn(uv_loop_t* loop,
   sigset_t sigoldset;
   int signal_pipe[2] = { -1, -1 };
   int pipes_storage[8][2];
-  int (*pipes)[2];
+  int (*pipes)[2]; // JAMLEE: pipes 是一个【数组指针】，指向一个两个int元素的数组。http://c.biancheng.net/view/368.html
   int stdio_count;
   ssize_t r;
   pid_t pid;
@@ -369,22 +370,24 @@ int uv_spawn(uv_loop_t* loop,
                               UV_PROCESS_WINDOWS_HIDE_CONSOLE |
                               UV_PROCESS_WINDOWS_HIDE_GUI |
                               UV_PROCESS_WINDOWS_VERBATIM_ARGUMENTS)));
-
+  // JAMLEE: 初始化 process handle
   uv__handle_init(loop, (uv_handle_t*)process, UV_PROCESS);
-  QUEUE_INIT(&process->queue);
+  QUEUE_INIT(&process->queue); // JAMLEE: 初始化 process 的队列。队列有什么用呢？
 
+  // JAMLEE: 这里 stdio 设置为3是指 stdin, stdout, stderr 吗？
   stdio_count = options->stdio_count;
   if (stdio_count < 3)
     stdio_count = 3;
 
   err = UV_ENOMEM;
-  pipes = pipes_storage;
+  pipes = pipes_storage; // JAMLEE: pipes 的类型和 pipe_storage。
   if (stdio_count > (int) ARRAY_SIZE(pipes_storage))
     pipes = uv__malloc(stdio_count * sizeof(*pipes));
 
   if (pipes == NULL)
     goto error;
-
+  
+  // JAMLEE: pipes 这个最多有 8 行。所以 i < 8 就可以了。把前三行的数值都设置为 -1
   for (i = 0; i < stdio_count; i++) {
     pipes[i][0] = -1;
     pipes[i][1] = -1;
@@ -396,6 +399,7 @@ int uv_spawn(uv_loop_t* loop,
       goto error;
   }
 
+  // JAMLEE: signal_pipe 解决问题 close-on-exec。
   /* This pipe is used by the parent to wait until
    * the child has called `execve()`. We need this
    * to avoid the following race condition:
@@ -425,9 +429,13 @@ int uv_spawn(uv_loop_t* loop,
   /* Acquire write lock to prevent opening new fds in worker threads */
   uv_rwlock_wrlock(&loop->cloexec_lock);
 
+  // JAMLEE: 启动 child 时, 屏蔽很多信号。sig del set: The sigdelset() function deletes the individual signal specified by signo from the signal set pointed to by set.
+  // SIG_BLOCK: 结果集是当前集合参数集的并集
+  // SIG_UNBLOCK: 结果集是当前集合参数集的差集
+  // SIG_SETMASK: 结果集是由参数集指向的集
   /* Start the child with most signals blocked, to avoid any issues before we
    * can reset them, but allow program failures to exit (and not hang). */
-  sigfillset(&signewset);
+  sigfillset(&signewset); // JAMLEE: 这是 signewset
   sigdelset(&signewset, SIGKILL);
   sigdelset(&signewset, SIGSTOP);
   sigdelset(&signewset, SIGTRAP);
@@ -436,17 +444,21 @@ int uv_spawn(uv_loop_t* loop,
   sigdelset(&signewset, SIGILL);
   sigdelset(&signewset, SIGSYS);
   sigdelset(&signewset, SIGABRT);
-  if (pthread_sigmask(SIG_BLOCK, &signewset, &sigoldset) != 0)
+  if (pthread_sigmask(SIG_BLOCK, &signewset, &sigoldset) != 0) // 阻塞信号
     abort();
 
+  // JAMLEE: fork 出子进程
   pid = fork();
-  if (pid == -1)
+  if (pid == -1) // JAMLEE: fork 失败
     err = UV__ERR(errno);
 
-  if (pid == 0)
+  if (pid == 0) // JAMLEE: 当前是子进程运行
     uv__process_child_init(options, stdio_count, pipes, signal_pipe[1]);
 
-  if (pthread_sigmask(SIG_SETMASK, &sigoldset, NULL) != 0)
+  // JAMLEE: 这里子进程不会运行吗？答案是上面这个函数已sigoldset经是不退出的。退出也是直接 abort。下面是父进程恢复信号处理
+  // APUE: https://anmingyu11.gitbooks.io/unix/content/di-shi-er-zhang-xian-cheng-kong-zhi/128-xian-cheng-he-xin-hao.html
+  // int pthread_sigmask(int how, const sigset_t *set, sigset_t *oldset);
+  if (pthread_sigmask(SIG_SETMASK, &sigoldset, NULL) != 0) // 还原主线程的屏蔽状态字。屏蔽状态字用户可以读写，未决状态字用户只能读；这是信号设计机制。
     abort();
 
   /* Release lock in parent process */

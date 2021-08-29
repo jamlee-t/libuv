@@ -893,6 +893,7 @@ void uv__io_init(uv__io_t* w, uv__io_cb cb, int fd) {
 }
 
 
+// JAMLEE: 注册事件到 loop 的 io_watcher 上
 void uv__io_start(uv_loop_t* loop, uv__io_t* w, unsigned int events) {
   assert(0 == (events & ~(POLLIN | POLLOUT | UV__POLLRDHUP | UV__POLLPRI)));
   assert(0 != events);

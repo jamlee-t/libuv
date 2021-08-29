@@ -23,6 +23,7 @@
 
 #ifndef UV_H
 #define UV_H
+// JAMLEE: 如果是 cpp 定义这个头
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -31,6 +32,7 @@ extern "C" {
 #error "Define either BUILDING_UV_SHARED or USING_UV_SHARED, not both."
 #endif
 
+// JAMLEE: 如果实在 windows 中编译。UV_EXTERN 设置为 __declspec
 #ifdef _WIN32
   /* Windows - set up dll import/export decorators. */
 # if defined(BUILDING_UV_SHARED)
@@ -60,6 +62,7 @@ extern "C" {
 # include <stdint.h>
 #endif
 
+// JAMLEE: 当前是 windows 还是 unix。然后在unix中包含更详细的版本。
 #if defined(_WIN32)
 # include "uv/win.h"
 #else
@@ -232,7 +235,7 @@ typedef struct uv_req_s uv_req_t;
 typedef struct uv_getaddrinfo_s uv_getaddrinfo_t;
 typedef struct uv_getnameinfo_s uv_getnameinfo_t;
 typedef struct uv_shutdown_s uv_shutdown_t;
-typedef struct uv_write_s uv_write_t;
+typedef struct uv_write_s uv_write_t; // JAMLEE: 用于向 stream 写入数据。例如 tty
 typedef struct uv_connect_s uv_connect_t;
 typedef struct uv_udp_send_s uv_udp_send_t;
 typedef struct uv_fs_s uv_fs_t;
@@ -248,6 +251,7 @@ typedef struct uv_passwd_s uv_passwd_t;
 typedef struct uv_utsname_s uv_utsname_t;
 typedef struct uv_statfs_s uv_statfs_t;
 
+// JAMLEE: loop 的配置项
 typedef enum {
   UV_LOOP_BLOCK_SIGNAL = 0,
   UV_METRICS_IDLE_TIME
@@ -263,6 +267,7 @@ typedef enum {
 UV_EXTERN unsigned int uv_version(void);
 UV_EXTERN const char* uv_version_string(void);
 
+// JAMLEE: 内存管理的函数
 typedef void* (*uv_malloc_func)(size_t size);
 typedef void* (*uv_realloc_func)(void* ptr, size_t size);
 typedef void* (*uv_calloc_func)(size_t count, size_t size);
@@ -270,11 +275,13 @@ typedef void (*uv_free_func)(void* ptr);
 
 UV_EXTERN void uv_library_shutdown(void);
 
+// JAMLEE: 替换为自己的内存管理函数
 UV_EXTERN int uv_replace_allocator(uv_malloc_func malloc_func,
                                    uv_realloc_func realloc_func,
                                    uv_calloc_func calloc_func,
                                    uv_free_func free_func);
 
+// JAMLEE: 
 UV_EXTERN uv_loop_t* uv_default_loop(void);
 UV_EXTERN int uv_loop_init(uv_loop_t* loop);
 UV_EXTERN int uv_loop_close(uv_loop_t* loop);
@@ -290,14 +297,16 @@ UV_EXTERN uv_loop_t* uv_loop_new(void);
  *  uv_loop_close and free the memory manually instead.
  */
 UV_EXTERN void uv_loop_delete(uv_loop_t*);
+
 UV_EXTERN size_t uv_loop_size(void);
 UV_EXTERN int uv_loop_alive(const uv_loop_t* loop);
 UV_EXTERN int uv_loop_configure(uv_loop_t* loop, uv_loop_option option, ...);
 UV_EXTERN int uv_loop_fork(uv_loop_t* loop);
 
 UV_EXTERN int uv_run(uv_loop_t*, uv_run_mode mode);
-UV_EXTERN void uv_stop(uv_loop_t*);
+UV_EXTERN void uv_stop(uv_loop_t*); // JAMLEE: 手动停止 loop 的运行。
 
+// JAMLEE: ref 还是 unref 一个 handle
 UV_EXTERN void uv_ref(uv_handle_t*);
 UV_EXTERN void uv_unref(uv_handle_t*);
 UV_EXTERN int uv_has_ref(const uv_handle_t*);
@@ -308,6 +317,7 @@ UV_EXTERN uint64_t uv_now(const uv_loop_t*);
 UV_EXTERN int uv_backend_fd(const uv_loop_t*);
 UV_EXTERN int uv_backend_timeout(const uv_loop_t*);
 
+// JAMLEE: 定义各种类型的 callback
 typedef void (*uv_alloc_cb)(uv_handle_t* handle,
                             size_t suggested_size,
                             uv_buf_t* buf);
@@ -395,7 +405,7 @@ UV_EXTERN char* uv_strerror_r(int err, char* buf, size_t buflen);
 UV_EXTERN const char* uv_err_name(int err);
 UV_EXTERN char* uv_err_name_r(int err, char* buf, size_t buflen);
 
-
+// JAMLEE: request 的
 #define UV_REQ_FIELDS                                                         \
   /* public */                                                                \
   void* data;                                                                 \
@@ -411,10 +421,12 @@ struct uv_req_s {
 };
 
 
+// JAMLEE: 私有的 req types。unix 这里为空
 /* Platform-specific request types. */
 UV_PRIVATE_REQ_TYPES
 
 
+// JAMLEE: 关闭一个流。
 UV_EXTERN int uv_shutdown(uv_shutdown_t* req,
                           uv_stream_t* handle,
                           uv_shutdown_cb cb);
@@ -425,6 +437,12 @@ struct uv_shutdown_s {
   uv_shutdown_cb cb;
   UV_SHUTDOWN_PRIVATE_FIELDS
 };
+
+///////////////////////////////////////////////////////////////////////////////
+//
+// 处理和handler相关的函数。 
+//
+///////////////////////////////////////////////////////////////////////////////
 
 // JAMLEE: 定义 handle 的非平台特定的字段
 #define UV_HANDLE_FIELDS                                                      \
@@ -492,6 +510,7 @@ UV_EXTERN int uv_socketpair(int type,
   /* private */                                                               \
   UV_STREAM_PRIVATE_FIELDS
 
+// JAMLEE: 流处理相关函数
 /*
  * uv_stream_t is a subclass of uv_handle_t.
  *
@@ -551,6 +570,8 @@ UV_EXTERN int uv_stream_set_blocking(uv_stream_t* handle, int blocking);
 UV_EXTERN int uv_is_closing(const uv_handle_t* handle);
 
 
+// ----------------------------------------------------------------------------
+// JAMLEE: tcp 支持
 /*
  * uv_tcp_t is a subclass of uv_stream_t.
  *
@@ -599,7 +620,8 @@ struct uv_connect_s {
   UV_CONNECT_PRIVATE_FIELDS
 };
 
-
+// ----------------------------------------------------------------------------
+// JAMLEE: udp 支持
 /*
  * UDP support.
  */
@@ -724,7 +746,8 @@ UV_EXTERN int uv_udp_recv_stop(uv_udp_t* handle);
 UV_EXTERN size_t uv_udp_get_send_queue_size(const uv_udp_t* handle);
 UV_EXTERN size_t uv_udp_get_send_queue_count(const uv_udp_t* handle);
 
-
+// ----------------------------------------------------------------------------
+// JAMLEE: tty 支持
 /*
  * uv_tty_t is a subclass of uv_stream_t.
  *
@@ -775,8 +798,11 @@ inline int uv_tty_set_mode(uv_tty_t* handle, int mode) {
 }
 #endif
 
+// JAMLEE: 根据文件获取 handle 的类型。
 UV_EXTERN uv_handle_type uv_guess_handle(uv_file file);
 
+// ----------------------------------------------------------------------------
+// JAMLEE: pipe 支持
 /*
  * uv_pipe_t is a subclass of uv_stream_t.
  *
@@ -808,7 +834,11 @@ UV_EXTERN int uv_pipe_pending_count(uv_pipe_t* handle);
 UV_EXTERN uv_handle_type uv_pipe_pending_type(uv_pipe_t* handle);
 UV_EXTERN int uv_pipe_chmod(uv_pipe_t* handle, int flags);
 
-
+///////////////////////////////////////////////////////////////////////////////
+//
+// JAMLEE: 事件循环中的几个阶段
+//
+///////////////////////////////////////////////////////////////////////////////
 struct uv_poll_s {
   UV_HANDLE_FIELDS
   uv_poll_cb poll_cb;
@@ -892,7 +922,11 @@ UV_EXTERN void uv_timer_set_repeat(uv_timer_t* handle, uint64_t repeat);
 UV_EXTERN uint64_t uv_timer_get_repeat(const uv_timer_t* handle);
 UV_EXTERN uint64_t uv_timer_get_due_in(const uv_timer_t* handle);
 
-
+///////////////////////////////////////////////////////////////////////////////
+//
+// JAMLEE: 工具函数
+//
+///////////////////////////////////////////////////////////////////////////////
 /*
  * uv_getaddrinfo_t is a subclass of uv_req_t.
  *
@@ -1276,6 +1310,7 @@ UV_EXTERN int uv_os_uname(uv_utsname_t* buffer);
 
 UV_EXTERN uint64_t uv_metrics_idle_time(uv_loop_t* loop);
 
+// JAMLEE: 文件操作函数
 typedef enum {
   UV_FS_UNKNOWN = -1,
   UV_FS_CUSTOM,
@@ -1662,7 +1697,7 @@ UV_EXTERN int uv_ip6_name(const struct sockaddr_in6* src, char* dst, size_t size
 UV_EXTERN int uv_inet_ntop(int af, const void* src, char* dst, size_t size);
 UV_EXTERN int uv_inet_pton(int af, const char* src, void* dst);
 
-
+// JAMLEE: 随机数
 struct uv_random_s {
   UV_REQ_FIELDS
   /* read-only */
@@ -1690,6 +1725,7 @@ UV_EXTERN int uv_random(uv_loop_t* loop,
 # define UV_IF_NAMESIZE (16 + 1)
 #endif
 
+// JAMLEE: 锁和线程
 UV_EXTERN int uv_if_indextoname(unsigned int ifindex,
                                 char* buffer,
                                 size_t* size);
@@ -1798,7 +1834,7 @@ union uv_any_req {
 };
 #undef XX
 
-
+// JAMLEE: 核心结构体 loop
 struct uv_loop_s {
   /* User data - use this for whatever. */
   void* data;

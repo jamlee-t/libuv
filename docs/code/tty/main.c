@@ -8,6 +8,7 @@ uv_tty_t tty;
 int main() {
     loop = uv_default_loop();
 
+    // JAMLEE: 将 tty 和 loop 关联起来
     uv_tty_init(loop, &tty, STDOUT_FILENO, 0);
     uv_tty_set_mode(&tty, UV_TTY_MODE_NORMAL);
     
@@ -23,6 +24,8 @@ int main() {
     uv_buf_t buf;
     buf.base = "Hello TTY\n";
     buf.len = strlen(buf.base);
+
+    // JAMLEE: 在tty中写入字符数据buf
     uv_write(&req, (uv_stream_t*) &tty, &buf, 1, NULL);
     uv_tty_reset_mode();
     return uv_run(loop, UV_RUN_DEFAULT);

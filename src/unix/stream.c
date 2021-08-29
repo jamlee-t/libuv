@@ -1438,12 +1438,13 @@ static int uv__check_before_write(uv_stream_t* stream,
   return 0;
 }
 
+// JAMLEE: 写入一个 requst
 int uv_write2(uv_write_t* req,
-              uv_stream_t* stream,
+              uv_stream_t* stream,      // 目标 stream 对象。例如 tty
               const uv_buf_t bufs[],
               unsigned int nbufs,
-              uv_stream_t* send_handle,
-              uv_write_cb cb) {
+              uv_stream_t* send_handle, // send_handle 为什么是 1
+              uv_write_cb cb) {         // 回调函数
   int empty_queue;
   int err;
 
@@ -1459,10 +1460,12 @@ int uv_write2(uv_write_t* req,
    */
   empty_queue = (stream->write_queue_size == 0);
 
+  // JAMLEE: 将 req 写入到 loop中。
   /* Initialize the req */
   uv__req_init(stream->loop, req, UV_WRITE);
+
   req->cb = cb;
-  req->handle = stream;
+  req->handle = stream; // JAMLEE: tty 作为 stream 的 handle
   req->error = 0;
   req->send_handle = send_handle;
   QUEUE_INIT(&req->queue);
@@ -1499,6 +1502,7 @@ int uv_write2(uv_write_t* req,
      * sufficiently flushed in uv__write.
      */
     assert(!(stream->flags & UV_HANDLE_BLOCKING_WRITES));
+    // JAMLEE: 注册可写时间
     uv__io_start(stream->loop, &stream->io_watcher, POLLOUT);
     uv__stream_osx_interrupt_select(stream);
   }

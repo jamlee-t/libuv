@@ -220,6 +220,7 @@ typedef struct {
   char* errmsg;
 } uv_lib_t;
 
+// JAMLEE: unix 上的 loop 私有字段
 #define UV_LOOP_PRIVATE_FIELDS                                                \
   unsigned long flags;                                                        \
   int backend_fd;                                                             \
@@ -286,6 +287,7 @@ typedef struct {
   uv_handle_t* next_closing;                                                  \
   unsigned int flags;                                                         \
 
+// JAMLEE: 定义 steam 的平台特性
 #define UV_STREAM_PRIVATE_FIELDS                                              \
   uv_connect_t *connect_req;                                                  \
   uv_shutdown_t *shutdown_req;                                                \
