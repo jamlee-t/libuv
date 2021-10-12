@@ -351,12 +351,12 @@ int uv_spawn(uv_loop_t* loop,
 #else
   sigset_t signewset;
   sigset_t sigoldset;
-  int signal_pipe[2] = { -1, -1 };
+  int signal_pipe[2] = { -1, -1 }; // JAMLEE: pipe 是一个数组。用于父子进程通信，解决 close-of-fork 问题
   int pipes_storage[8][2];
   int (*pipes)[2]; // JAMLEE: pipes 是一个【数组指针】，指向一个两个int元素的数组。http://c.biancheng.net/view/368.html
   int stdio_count;
   ssize_t r;
-  pid_t pid;
+  pid_t pid; // JAMLEE: fork 后得返回值
   int err;
   int exec_errorno;
   int i;
@@ -372,7 +372,7 @@ int uv_spawn(uv_loop_t* loop,
                               UV_PROCESS_WINDOWS_VERBATIM_ARGUMENTS)));
   // JAMLEE: 初始化 process handle
   uv__handle_init(loop, (uv_handle_t*)process, UV_PROCESS);
-  QUEUE_INIT(&process->queue); // JAMLEE: 初始化 process 的队列。队列有什么用呢？
+  QUEUE_INIT(&process->queue); // JAMLEE: 初始化 process 的queue。队列queue用途呢？queue 的定义为 void* queue[2]。
 
   // JAMLEE: 这里 stdio 设置为3是指 stdin, stdout, stderr 吗？
   stdio_count = options->stdio_count;
@@ -399,7 +399,7 @@ int uv_spawn(uv_loop_t* loop,
       goto error;
   }
 
-  // JAMLEE: signal_pipe 解决问题 close-on-exec。
+  // JAMLEE: signal_pipe 解决问题 close-on-exec。 https://blog.csdn.net/Leeds1993/article/details/52724428
   /* This pipe is used by the parent to wait until
    * the child has called `execve()`. We need this
    * to avoid the following race condition:
@@ -420,12 +420,13 @@ int uv_spawn(uv_loop_t* loop,
    * marked close-on-exec. Then, after the call to `fork()`,
    * the parent polls the read end until it EOFs or errors with EPIPE.
    */
-  err = uv__make_pipe(signal_pipe, 0);
+  err = uv__make_pipe(signal_pipe, 0); // JAMLEE: 创建一个 pipe出阿里
   if (err)
     goto error;
 
   uv_signal_start(&loop->child_watcher, uv__chld, SIGCHLD);
 
+  // JAMLEE: 获取到 loop->cloexec_lock 这个读写锁, 防止在worker threads打开新的fds
   /* Acquire write lock to prevent opening new fds in worker threads */
   uv_rwlock_wrlock(&loop->cloexec_lock);
 
@@ -447,20 +448,22 @@ int uv_spawn(uv_loop_t* loop,
   if (pthread_sigmask(SIG_BLOCK, &signewset, &sigoldset) != 0) // 阻塞信号
     abort();
 
-  // JAMLEE: fork 出子进程
+  // JAMLEE: fork 出子进程, 返回值： 若成功调用一次则返回两个值，子进程返回0，父进程返回子进程ID；否则，出错返回-1
   pid = fork();
   if (pid == -1) // JAMLEE: fork 失败
     err = UV__ERR(errno);
 
-  if (pid == 0) // JAMLEE: 当前是子进程运行
+  if (pid == 0) // JAMLEE: 当前是子进程运行, 本函数不会退出
     uv__process_child_init(options, stdio_count, pipes, signal_pipe[1]);
 
-  // JAMLEE: 这里子进程不会运行吗？答案是上面这个函数已sigoldset经是不退出的。退出也是直接 abort。下面是父进程恢复信号处理
+  // JAMLEE: pid > 0 时运行。也就是在父进程中。
+  // JAMLEE: 这里子进程不会运行吗？答案是上面这个函数已sigoldset经是不退出的。退出也是直接 abort。下面是父进程恢复信号处理。
   // APUE: https://anmingyu11.gitbooks.io/unix/content/di-shi-er-zhang-xian-cheng-kong-zhi/128-xian-cheng-he-xin-hao.html
   // int pthread_sigmask(int how, const sigset_t *set, sigset_t *oldset);
   if (pthread_sigmask(SIG_SETMASK, &sigoldset, NULL) != 0) // 还原主线程的屏蔽状态字。屏蔽状态字用户可以读写，未决状态字用户只能读；这是信号设计机制。
     abort();
 
+  // JAMLEE: 释放loop->cloexec_lock锁
   /* Release lock in parent process */
   uv_rwlock_wrunlock(&loop->cloexec_lock);
 

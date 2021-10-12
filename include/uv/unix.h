@@ -45,6 +45,7 @@
 
 #include "uv/threadpool.h"
 
+// JAMLEE: 非 win 的都是 unix。这里再对 unix.h 做区分。
 #if defined(__linux__)
 # include "uv/linux.h"
 #elif defined (__MVS__)

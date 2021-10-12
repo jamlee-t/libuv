@@ -13,6 +13,7 @@ void wait_for_a_while(uv_idle_t* handle) {
 int main() {
     uv_idle_t idler;
 
+    // JAMLEE: 初始化并且启动loop
     uv_idle_init(uv_default_loop(), &idler);
     uv_idle_start(&idler, wait_for_a_while);
 

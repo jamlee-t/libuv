@@ -13,6 +13,7 @@ void on_exit(uv_process_t *req, int64_t exit_status, int term_signal) {
 }
 
 int main() {
+    // JAMLEE: 获取内置的默认 loop
     loop = uv_default_loop();
 
     char* args[3];
@@ -25,6 +26,7 @@ int main() {
     options.args = args;
 
     int r;
+    // JAMLEE: 调用 uv_spawn 方法, 传入未初始化的 child_req (uv_process_t类型)。
     if ((r = uv_spawn(loop, &child_req, &options))) {
         fprintf(stderr, "%s\n", uv_strerror(r));
         return 1;

@@ -211,8 +211,8 @@ typedef enum {
 
 
 /* Handle types. */
-typedef struct uv_loop_s uv_loop_t;
-typedef struct uv_handle_s uv_handle_t;
+typedef struct uv_loop_s uv_loop_t;  // JAMLEE: uv_loop 结构体, 所有的运行都是从新建 1 个 loop, 然后在 loop 中添加 handle 不断处理事件
+typedef struct uv_handle_s uv_handle_t; // JAMLEE: uv_handle_s 
 typedef struct uv_dir_s uv_dir_t;
 typedef struct uv_stream_s uv_stream_t;
 typedef struct uv_tcp_s uv_tcp_t;
@@ -225,7 +225,7 @@ typedef struct uv_prepare_s uv_prepare_t;
 typedef struct uv_check_s uv_check_t;
 typedef struct uv_idle_s uv_idle_t;
 typedef struct uv_async_s uv_async_t;
-typedef struct uv_process_s uv_process_t;
+typedef struct uv_process_s uv_process_t; // JAMLEE: 创建进程的handle。
 typedef struct uv_fs_event_s uv_fs_event_t;
 typedef struct uv_fs_poll_s uv_fs_poll_t;
 typedef struct uv_signal_s uv_signal_t;

@@ -773,6 +773,7 @@ uv_loop_t* uv_default_loop(void) {
 }
 
 
+// JAMLEE: 创建一个新的 uv_loop
 uv_loop_t* uv_loop_new(void) {
   uv_loop_t* loop;
 
@@ -788,7 +789,7 @@ uv_loop_t* uv_loop_new(void) {
   return loop;
 }
 
-
+// JAMLEE: 关闭 uv_loop
 int uv_loop_close(uv_loop_t* loop) {
   QUEUE* q;
   uv_handle_t* h;
@@ -819,6 +820,7 @@ int uv_loop_close(uv_loop_t* loop) {
 }
 
 
+// JAMLEE: 删除 uv_loop
 void uv_loop_delete(uv_loop_t* loop) {
   uv_loop_t* default_loop;
   int err;
