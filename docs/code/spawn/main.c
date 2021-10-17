@@ -17,7 +17,7 @@ int main() {
     loop = uv_default_loop();
 
     char* args[3];
-    args[0] = "mkdir";
+    args[0] = "cat";
     args[1] = "test-dir";
     args[2] = NULL;
 

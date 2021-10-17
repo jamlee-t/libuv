@@ -116,6 +116,7 @@ static void uv__chld(uv_signal_t* handle, int signum) {
   assert(QUEUE_EMPTY(&pending));
 }
 
+// JAMLEE: 初始化 container。传入 1 个 pipe
 /*
  * Used for initializing stdio streams like options.stdin_stream. Returns
  * zero on success. See also the cleanup section in uv_spawn().
@@ -130,7 +131,7 @@ static int uv__process_init_stdio(uv_stdio_container_t* container, int fds[2]) {
   case UV_IGNORE:
     return 0;
 
-  case UV_CREATE_PIPE:
+  case UV_CREATE_PIPE: // JAMLEE: 创建 pipe
     assert(container->data.stream != NULL);
     if (container->data.stream->type != UV_NAMED_PIPE)
       return UV_EINVAL;
@@ -208,6 +209,7 @@ static void uv__write_errno(int error_fd) {
 }
 
 
+// JAMLEE: 在子进程中运行。当fork成功时，这个函数第一个运行。
 #if !(defined(__APPLE__) && (TARGET_OS_TV || TARGET_OS_WATCH))
 /* execvp is marked __WATCHOS_PROHIBITED __TVOS_PROHIBITED, so must be
  * avoided. Since this isn't called on those targets, the function
@@ -345,6 +347,7 @@ static void uv__process_child_init(const uv_process_options_t* options,
 int uv_spawn(uv_loop_t* loop,
              uv_process_t* process,
              const uv_process_options_t* options) {
+// JAMLEE: apple 的 tv 和 watch 这个用不了的
 #if defined(__APPLE__) && (TARGET_OS_TV || TARGET_OS_WATCH)
   /* fork is marked __WATCHOS_PROHIBITED __TVOS_PROHIBITED. */
   return UV_ENOSYS;
@@ -352,8 +355,8 @@ int uv_spawn(uv_loop_t* loop,
   sigset_t signewset;
   sigset_t sigoldset;
   int signal_pipe[2] = { -1, -1 }; // JAMLEE: pipe 是一个数组。用于父子进程通信，解决 close-of-fork 问题
-  int pipes_storage[8][2];
-  int (*pipes)[2]; // JAMLEE: pipes 是一个【数组指针】，指向一个两个int元素的数组。http://c.biancheng.net/view/368.html
+  int pipes_storage[8][2]; // JAMLEE: 存储 pipe 的 fd ，所以这里是 int 类型
+  int (*pipes)[2]; // JAMLEE: pipes 是一个【数组指针】，指向一个两个int元素的数组。http://c.biancheng.net/view/368.html。pipes_storage 用 pipes 来指，每次加1会移到下一行
   int stdio_count;
   ssize_t r;
   pid_t pid; // JAMLEE: fork 后得返回值
@@ -372,29 +375,30 @@ int uv_spawn(uv_loop_t* loop,
                               UV_PROCESS_WINDOWS_VERBATIM_ARGUMENTS)));
   // JAMLEE: 初始化 process handle
   uv__handle_init(loop, (uv_handle_t*)process, UV_PROCESS);
-  QUEUE_INIT(&process->queue); // JAMLEE: 初始化 process 的queue。队列queue用途呢？queue 的定义为 void* queue[2]。
+  QUEUE_INIT(&process->queue); // JAMLEE: 初始化 process 的queue。队列queue用途呢？queue 的定义为 void* queue[2]。分别只想上一个和下一个节点（这里是process）
 
-  // JAMLEE: 这里 stdio 设置为3是指 stdin, stdout, stderr 吗？
-  stdio_count = options->stdio_count;
+  // JAMLEE: 这里 stdio 设置为3是指 stdin, stdout, stderr 吗？是的。stdio 表示3个标准输入输出
+  stdio_count = options->stdio_count; // JAMLEE: 默认情况下，stdio_count 是 0
   if (stdio_count < 3)
     stdio_count = 3;
 
   err = UV_ENOMEM;
   pipes = pipes_storage; // JAMLEE: pipes 的类型和 pipe_storage。
   if (stdio_count > (int) ARRAY_SIZE(pipes_storage))
-    pipes = uv__malloc(stdio_count * sizeof(*pipes));
+    pipes = uv__malloc(stdio_count * sizeof(*pipes)); // JAMLEE: sizeof 也可以对一个值取 size
 
   if (pipes == NULL)
     goto error;
   
-  // JAMLEE: pipes 这个最多有 8 行。所以 i < 8 就可以了。把前三行的数值都设置为 -1
+  // JAMLEE: pipes 这个最多有 8 行。所以 i < 8 就可以了。把前三行的数值都设置为 -1 来初始化
   for (i = 0; i < stdio_count; i++) {
     pipes[i][0] = -1;
     pipes[i][1] = -1;
   }
 
+  // JAMLEE: 当前的stdio有3个，所以填充起来3个pipe。options->stdio 这个初始化空间时至少要初始化三个这个谁来定义的呢? 原来默认情况下 options->stdio_count 是 0。这里不执行。
   for (i = 0; i < options->stdio_count; i++) {
-    err = uv__process_init_stdio(options->stdio + i, pipes[i]);
+    err = uv__process_init_stdio(options->stdio + i, pipes[i]); // JAMLEE: options->stdio 感觉是一个未定义的具体值的指针呢？
     if (err)
       goto error;
   }
@@ -420,13 +424,14 @@ int uv_spawn(uv_loop_t* loop,
    * marked close-on-exec. Then, after the call to `fork()`,
    * the parent polls the read end until it EOFs or errors with EPIPE.
    */
-  err = uv__make_pipe(signal_pipe, 0); // JAMLEE: 创建一个 pipe出阿里
+  err = uv__make_pipe(signal_pipe, 0); // JAMLEE: 创建一个 pipe 出来，fd 放置到 signal_pipe 中。
   if (err)
     goto error;
 
   uv_signal_start(&loop->child_watcher, uv__chld, SIGCHLD);
 
-  // JAMLEE: 获取到 loop->cloexec_lock 这个读写锁, 防止在worker threads打开新的fds
+  // JAMLEE: 获取到 loop->cloexec_lock 这个读写锁, 防止在 worker threads 打开新的fds
+  // 获取和释放之间包含着信号设置函数
   /* Acquire write lock to prevent opening new fds in worker threads */
   uv_rwlock_wrlock(&loop->cloexec_lock);
 
@@ -467,8 +472,10 @@ int uv_spawn(uv_loop_t* loop,
   /* Release lock in parent process */
   uv_rwlock_wrunlock(&loop->cloexec_lock);
 
+  // JAMLEE: 当前是在父进程，为什么关闭了一个文件描述符。
   uv__close(signal_pipe[1]);
 
+  // JAMLEE: 返回 -1 意味这进程没有fork成功
   if (pid == -1) {
     uv__close(signal_pipe[0]);
     goto error;
@@ -477,7 +484,7 @@ int uv_spawn(uv_loop_t* loop,
   process->status = 0;
   exec_errorno = 0;
   do
-    r = read(signal_pipe[0], &exec_errorno, sizeof(exec_errorno));
+    r = read(signal_pipe[0], &exec_errorno, sizeof(exec_errorno)); // JAMLEE: 读取 exec_errorno 信息
   while (r == -1 && errno == EINTR);
 
   if (r == 0)
@@ -543,11 +550,13 @@ error:
 }
 
 
+// JAMLEE: 给传入的进程发送信号
 int uv_process_kill(uv_process_t* process, int signum) {
   return uv_kill(process->pid, signum);
 }
 
 
+// JAMLEE: 调用kill系统调用
 int uv_kill(int pid, int signum) {
   if (kill(pid, signum))
     return UV__ERR(errno);
@@ -555,7 +564,7 @@ int uv_kill(int pid, int signum) {
     return 0;
 }
 
-
+// JAMLEE: 关闭进程
 void uv__process_close(uv_process_t* handle) {
   QUEUE_REMOVE(&handle->queue);
   uv__handle_stop(handle);

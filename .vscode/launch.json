@@ -1,0 +1,79 @@
+{
+    // 使用 IntelliSense 了解相关属性。 
+    // 悬停以查看现有属性的描述。
+    // 欲了解更多信息，请访问: https://go.microsoft.com/fwlink/?linkid=830387
+    "version": "0.2.0",
+    "configurations": [
+
+        {
+            "name": "(linux-gdb)fork-demo",
+            "type": "cppdbg",
+            "request": "launch",
+            "preLaunchTask": "build-fork",
+            "program": "${workspaceFolder}/fork-demo",
+            "args": [],
+            "stopAtEntry": true,
+            "cwd": "${workspaceFolder}/build",
+            "environment": [],
+            "externalConsole": false,
+            "miDebuggerPath": "/usr/bin/gdb",
+            "MIMode": "gdb"
+        },
+        {
+            "name": "(linux-gdb)spawn-static",
+            "type": "cppdbg",
+            "request": "launch",
+            "preLaunchTask": "build-spawn-static-link",
+            "program": "${workspaceFolder}/spawn",
+            "args": [],
+            "stopAtEntry": true,
+            "cwd": "${workspaceFolder}/build",
+            // 这个搜索路径很重要
+            "environment": [{"name": "LD_LIBRARY_PATH", "value": "./"}],
+            "externalConsole": false,
+            "miDebuggerPath": "/usr/bin/gdb",
+            "MIMode": "gdb"
+        },
+        {
+            "name": "(linux-gdb)spawn-dynamic",
+            "type": "cppdbg",
+            "request": "launch",
+            "preLaunchTask": "build-spawn-dynamic-link",
+            "program": "${workspaceFolder}/spawn",
+            "args": [],
+            "stopAtEntry": true,
+            "cwd": "${workspaceFolder}/build",
+            // 这个搜索路径很重要
+            "environment": [{"name": "LD_LIBRARY_PATH", "value": "./"}],
+            "externalConsole": false,
+            "miDebuggerPath": "/usr/bin/gdb",
+            "MIMode": "gdb"
+        },
+        {
+            "name": "(mac-gdb) 启动[放弃]",
+            "type": "cppdbg",
+            "request": "launch",
+            "program": "${workspaceFolder}/spawn",
+            "args": [],
+            "stopAtEntry": true,
+            "cwd": "${fileDirname}",
+            "environment": [],
+            "externalConsole": false,
+            "miDebuggerPath": "/usr/local/bin/gdb",
+            "MIMode": "gdb"
+        },
+        {
+            "name": "(mac-gdb) fork demo[放弃]",
+            "type": "cppdbg",
+            "request": "launch",
+            "program": "${workspaceFolder}/00_note/fork-demo/a.out",
+            "args": [],
+            "stopAtEntry": true,
+            "cwd": "${fileDirname}",
+            "environment": [],
+            "externalConsole": false,
+            "miDebuggerPath": "/usr/local/bin/gdb",
+            "MIMode": "gdb"
+        }
+    ]
+}

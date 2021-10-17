@@ -1,0 +1,7 @@
+gdb 总是hang住。时不时的。目前还没有什么办法。
+
+(gdb) start
+Temporary breakpoint 1 at 0x100003e16: file main.c, line 11.
+Starting program: /Volumes/code/code/libuv-code/libuv/00_note/fork-demo/a.out
+[New Thread 0x1a03 of process 32592]
+[New Thread 0x1c03 of process 32592]

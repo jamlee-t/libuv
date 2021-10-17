@@ -1,0 +1,22 @@
+{
+    // See https://go.microsoft.com/fwlink/?LinkId=733558
+    // for the documentation about the tasks.json format
+    "version": "2.0.0",
+    "tasks": [
+        {
+            "label": "build-fork",
+            "type": "shell",
+            "command": "gcc  -g -O0 00_note/fork-demo/main.c -o fork-demo"
+        },
+        {
+            "label": "build-spawn-static-link",
+            "type": "shell",
+            "command": "gcc docs/code/spawn/main.c -o spawn --verbose  -g -O0 -I./include/ -L./build/ -Wl,-Bstatic -luv_a  -Wl,-Bdynamic -ldl -lpthread"
+        },
+        {
+            "label": "build-spawn-dynamic-link",
+            "type": "shell",
+            "command": "gcc  docs/code/spawn/main.c -o spawn --verbose  -g -O0 -I./include/ -L./build/ -luv"
+        }
+    ]
+}
