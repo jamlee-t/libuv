@@ -436,12 +436,10 @@ int uv_spawn(uv_loop_t* loop,
   uv_rwlock_wrlock(&loop->cloexec_lock);
 
   // JAMLEE: 启动 child 时, 屏蔽很多信号。sig del set: The sigdelset() function deletes the individual signal specified by signo from the signal set pointed to by set.
-  // SIG_BLOCK: 结果集是当前集合参数集的并集
-  // SIG_UNBLOCK: 结果集是当前集合参数集的差集
-  // SIG_SETMASK: 结果集是由参数集指向的集
+  // https://www.gnu.org/software/libc/manual/html_node/Process-Signal-Mask.html
   /* Start the child with most signals blocked, to avoid any issues before we
    * can reset them, but allow program failures to exit (and not hang). */
-  sigfillset(&signewset); // JAMLEE: 这是 signewset
+  sigfillset(&signewset); // JAMLEE: 信号集，在其中删除一些信号
   sigdelset(&signewset, SIGKILL);
   sigdelset(&signewset, SIGSTOP);
   sigdelset(&signewset, SIGTRAP);
@@ -450,6 +448,7 @@ int uv_spawn(uv_loop_t* loop,
   sigdelset(&signewset, SIGILL);
   sigdelset(&signewset, SIGSYS);
   sigdelset(&signewset, SIGABRT);
+  // 这里使用了 SIG_BLOCK，是将 signewset 所有的都 block 掉。在原本的信号屏蔽字上做添加。
   if (pthread_sigmask(SIG_BLOCK, &signewset, &sigoldset) != 0) // 阻塞信号
     abort();
 

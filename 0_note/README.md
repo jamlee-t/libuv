@@ -68,11 +68,11 @@ https://code.visualstudio.com/docs/editor/debugging#_launchjson-attributes
 
 ````bash
 # 动态链接
-gcc  docs/code/spawn/main.c -o spawn --verbose  -g -O0 -I./include/ -L./build/ -luv
+gcc docs/code/spawn/main.c -o spawn --verbose  -g -O0 -I./include/ -L./build/ -luv
+gcc docs/code/spawn/main.c -o spawn --verbose  -g -O0 -I./include/ -L./.libs  -luv # autogen 编译时
 
 # 静态链接， -B 会影响后续所有的参数的行为。静态库里面的动态库需要指定出来
-gcc  docs/code/spawn/main.c -o spawn --verbose  -g -O0 -I./include/ -L./build/ -Wl,-Bstatic -luv_a  -Wl,-Bdynamic -ldl -lpthread
-
+gcc docs/code/spawn/main.c -o spawn --verbose  -g -O0 -I./include/ -L./build/ -Wl,-Bstatic -luv_a  -Wl,-Bdynamic -ldl -lpthread
 gcc docs/code/spawn/main.c -o spawn --verbose  -g -O0 -I./include/ -L./build/ -l:libuv_a.a -ldl -lpthread
 
 https://stackoverflow.com/questions/6578484/telling-gcc-directly-to-link-a-library-statically

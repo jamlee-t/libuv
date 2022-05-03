@@ -27,11 +27,12 @@
 #ifndef UV_THREADPOOL_H_
 #define UV_THREADPOOL_H_
 
+// 1 个 worker 代表 1 个任务。所有的 worker 形成 1 个队列。就是 loop->wq 队列。
 struct uv__work {
-  void (*work)(struct uv__work *w);
-  void (*done)(struct uv__work *w, int status);
+  void (*work)(struct uv__work *w); // work 函数，传入参数当前的 worker。
+  void (*done)(struct uv__work *w, int status); // 当前 work 执行完毕之后，执行 done 函数。
   struct uv_loop_s* loop;
-  void* wq[2];
+  void* wq[2]; // 用于作为队列节点
 };
 
 #endif /* UV_THREADPOOL_H_ */

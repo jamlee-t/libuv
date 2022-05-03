@@ -82,6 +82,7 @@ static int read_times(FILE* statfile_fp,
 static void read_speeds(unsigned int numcpus, uv_cpu_info_t* ci);
 static uint64_t read_cpufreq(unsigned int cpunum);
 
+// 这里使用 epoll 初始化 loop
 int uv__platform_loop_init(uv_loop_t* loop) {
   
   loop->inotify_fd = -1;

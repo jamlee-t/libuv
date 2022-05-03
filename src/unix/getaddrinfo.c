@@ -177,9 +177,10 @@ int uv_getaddrinfo(uv_loop_t* loop,
   if (buf == NULL)
     return UV_ENOMEM;
 
+  // loop 中 active_req 加 1，req 的类型设置为 UV_GETADDRINFO。loop 里面不会存储这个 req。
   uv__req_init(loop, req, UV_GETADDRINFO);
   req->loop = loop;
-  req->cb = cb;
+  req->cb = cb; // 执行完毕后的回调
   req->addrinfo = NULL;
   req->hints = NULL;
   req->service = NULL;
@@ -202,6 +203,7 @@ int uv_getaddrinfo(uv_loop_t* loop,
   if (hostname)
     req->hostname = memcpy(buf + len, hostname, hostname_len);
 
+  // req 用 work 的方式提交。
   if (cb) {
     uv__work_submit(loop,
                     &req->work_req,

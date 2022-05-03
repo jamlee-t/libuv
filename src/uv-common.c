@@ -773,7 +773,7 @@ uv_loop_t* uv_default_loop(void) {
 }
 
 
-// JAMLEE: 创建一个新的 uv_loop
+// JAMLEE: 创建一个新的 uv_loop。核心函数 uv_loop_init
 uv_loop_t* uv_loop_new(void) {
   uv_loop_t* loop;
 
@@ -894,7 +894,7 @@ void uv_library_shutdown(void) {
   uv__store_relaxed(&was_shutdown, 1);
 }
 
-
+// loop 有这个 UV_METRICS_IDLE_TIME 标志，才会运行这个 metric。
 void uv__metrics_update_idle_time(uv_loop_t* loop) {
   uv__loop_metrics_t* loop_metrics;
   uint64_t entry_time;
@@ -912,6 +912,7 @@ void uv__metrics_update_idle_time(uv_loop_t* loop) {
   if (loop_metrics->provider_entry_time == 0)
     return;
 
+  // 当前时间，减去 entry_time 是当前 idle 阶段的运行时间
   exit_time = uv_hrtime();
 
   uv_mutex_lock(&loop_metrics->lock);
@@ -921,7 +922,7 @@ void uv__metrics_update_idle_time(uv_loop_t* loop) {
   uv_mutex_unlock(&loop_metrics->lock);
 }
 
-
+// 设置 loop_metrics 中的 provider_entry_time
 void uv__metrics_set_provider_entry_time(uv_loop_t* loop) {
   uv__loop_metrics_t* loop_metrics;
   uint64_t now;

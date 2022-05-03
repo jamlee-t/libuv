@@ -22,6 +22,16 @@
 #include "uv.h"
 #include "internal.h"
 
+// JAMLEE(L0): 定义 handle 的 init, start, stop 函数。
+/*
+* 1）uv_*_init 函数。把 loop 通过 uv__handle_init 设置到 handle 中.
+* 2）uv_*_start 函数。如果 handle 是 active 的，直接返回。否则在 loop 的对应 handles（例如：idle handles 是一组同类型的 handles）队列中头部插入新的 handle。
+* 3）uv_*_stop 函数。如果 handle 不是 active 的，直接返回。QUEUE_REMOVE 只要知道元素就可以从队列中删除改元素。
+* 4）uv_run_* 函数。
+*    1）QUEUE_MOVE(&loop->name##_handles, &queue)，handles 全部丢到空队列 queue。
+*    2）queue 不为空继续循环。每次都取出头节点，这样就是先入队的先执行了。然后取出节点中数据执行。执行完毕的放回到 loop 中的队列里。
+* 5）uv_*_close 函数。调用 uv_*_stop 传入的 handle。
+*/
 #define UV_LOOP_WATCHER_DEFINE(name, type)                                    \
   int uv_##name##_init(uv_loop_t* loop, uv_##name##_t* handle) {              \
     uv__handle_init(loop, (uv_handle_t*)handle, UV_##type);                   \
@@ -63,6 +73,7 @@
     uv_##name##_stop(handle);                                                 \
   }
 
+// JAMLEE(L2): 同时定义 prepare, check 和 idle 三种 handle
 UV_LOOP_WATCHER_DEFINE(prepare, PREPARE)
 UV_LOOP_WATCHER_DEFINE(check, CHECK)
 UV_LOOP_WATCHER_DEFINE(idle, IDLE)

@@ -70,6 +70,7 @@ extern int snprintf(char*, size_t, const char*, ...);
 
 #define UV__UDP_DGRAM_MAXSIZE (64 * 1024)
 
+// JAMLEE: handle 的 flag。例如: 关闭中，已关闭，已激活，已关联
 /* Handle flags. Some flags are specific to Windows or UNIX. */
 enum {
   /* Used by all handles. */
@@ -226,6 +227,7 @@ void uv__threadpool_cleanup(void);
 #define uv__has_active_reqs(loop)                                             \
   ((loop)->active_reqs.count > 0)
 
+// req 计数器加 1
 #define uv__req_register(loop, req)                                           \
   do {                                                                        \
     (loop)->active_reqs.count++;                                              \
@@ -285,6 +287,9 @@ void uv__threadpool_cleanup(void);
   }                                                                           \
   while (0)
 
+// JAMLEE: 设置 handle 的 flag 的标志位 UV_HANDLE_REF 为 0。
+// 此外，如果 handle 是处于 UV_HANDLE_CLOSING 状态，返回。
+// 此外，如果 handle 是处于 UV_HANDLE_ACTIVE 状态，计数器 active_handles 减 1。
 #define uv__handle_unref(h)                                                   \
   do {                                                                        \
     if (((h)->flags & UV_HANDLE_REF) == 0) break;                             \
@@ -294,6 +299,7 @@ void uv__threadpool_cleanup(void);
   }                                                                           \
   while (0)
 
+// JAMLEE: 当前 handle 是否是 UV_HANDLE_REF 的
 #define uv__has_ref(h)                                                        \
   (((h)->flags & UV_HANDLE_REF) != 0)
 
@@ -303,7 +309,7 @@ void uv__threadpool_cleanup(void);
 # define uv__handle_platform_init(h) ((h)->next_closing = NULL)
 #endif
 
-// JAMLEE: 定义公用的 handle 初始化函数。在子类的handleO_init调用。
+// JAMLEE: 定义公用的 handle 初始化函数。在不同handle的handle_*_init调用。
 #define uv__handle_init(loop_, h, type_)                                      \
   do {                                                                        \
     (h)->loop = (loop_);                                                      \
@@ -332,6 +338,7 @@ void uv__threadpool_cleanup(void);
   while (0)
 #endif
 
+// 初始化 req 后，并注册 req 到 loop 中
 #define uv__req_init(loop, req, typ)                                          \
   do {                                                                        \
     UV_REQ_INIT(req, typ);                                                    \
@@ -339,6 +346,7 @@ void uv__threadpool_cleanup(void);
   }                                                                           \
   while (0)
 
+// loop 内部字段包括：loop_metrics 和 flags
 #define uv__get_internal_fields(loop)                                         \
   ((uv__loop_internal_fields_t*) loop->internal_fields)
 
@@ -357,6 +365,7 @@ void* uv__reallocf(void* ptr, size_t size);
 typedef struct uv__loop_metrics_s uv__loop_metrics_t;
 typedef struct uv__loop_internal_fields_s uv__loop_internal_fields_t;
 
+// 修改时需要获取锁和解锁
 struct uv__loop_metrics_s {
   uint64_t provider_entry_time;
   uint64_t provider_idle_time;

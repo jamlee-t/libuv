@@ -94,6 +94,8 @@ typedef void (*uv__io_cb)(struct uv_loop_s* loop,
                           unsigned int events);
 typedef struct uv__io_s uv__io_t;
 
+// uv__io_s 不是 handle。是 io watcher。
+// IO 结构体，用于 poll io 阶段。例如：signal_io_watcher
 struct uv__io_s {
   uv__io_cb cb;
   void* pending_queue[2];
@@ -221,7 +223,71 @@ typedef struct {
   char* errmsg;
 } uv_lib_t;
 
-// JAMLEE: unix 上的 loop 私有字段
+// JAMLEE: unix 上的 loop 私有字段。
+/* 
+* 1）*_handles 是 QUEUE 类型的。作为队列管理的头节点，这个节点是不带数据的。
+* 2）time 是 loop 中维护的时间戳。
+* 3) backend_fd 是 efd，epoll_create 创建的 fd。
+* 4）signal_pipefd 是父进程给子进程发消息的 pipe。
+* 5）watchers uv__io_s 类型的，就是 watcher。wacher 就是 hanlde 的一种。底层都用到了 fd。
+* 6）nwatchers 的数量。
+* 7）nfds watchers 被加入到 loop 后。watcher 对应的 fd 也会被计数。
+* 8）child_watcher 通过pipe接收来自子进程的消息。
+* 9）wq_mutex 互斥锁，pthread_mutex_t 类型。wq 字段操作时需要加锁。
+* 10）uv_rwlock_t 读写锁，pthread_rwlock_t 类型。
+* 11）async_io_watcher 是 uv__io_t 类型的 io watcher。
+* 12）async_handles，u_async_t 类型的 handle。
+* 13）wq，worker queue 队列。
+* 14）async_io_watcher，async_wfd 和 io_watcher 。监听 1 个异步 fd。
+* 15) timer_heap 最小时间堆，用于存储定时器的 handle。
+* 16) timer_counter 定时器触发次数计数。
+*
+* linux 平台字段
+* uv__io_t inotify_read_watcher;                                              \
+* void* inotify_watchers;                                                     \
+* int inotify_fd;  
+*
+* 公共的 loop 字段
+*  // User data - use this for whatever
+*  void* data;
+*  // Loop reference counting.
+*  unsigned int active_handles;
+*  void* handle_queue[2];
+*  union {
+*    void* unused;
+*    unsigned int count;
+*  } active_reqs; 当前激活的 request
+*  // Internal storage for future extensions
+*  void* internal_fields; // 内部字段，比如 flag 有 UV_METRICS_IDLE_TIME 和 UV_LOOP_BLOCK_SIGNAL
+*  // Internal flag to signal loop stop
+*  unsigned int stop_flag;
+*/
+// 其中 internal_fields 结构体
+// struct uv__loop_internal_fields_s {
+//   unsigned int flags;
+//   uv__loop_metrics_t loop_metrics;
+// // };
+
+// loop 对应的 2 个配置项
+//     - UV_LOOP_BLOCK_SIGNAL: Block a signal when polling for new events.  The
+//       second argument to :c:func:`uv_loop_configure` is the signal number.
+//       This operation is currently only implemented for SIGPROF signals,
+//       to suppress unnecessary wakeups when using a sampling profiler.
+//       Requesting other signals will fail with UV_EINVAL.
+//     - UV_METRICS_IDLE_TIME: Accumulate the amount of idle time the event loop
+//       spends in the event provider.
+//       This option is necessary to use :c:func:`uv_metrics_idle_time`.
+
+// SIGPROF 信号
+// 1. alarm函数只能产生SIGALRM信号，而setitimer函数可以产生SIGALRM、SIGVTALRM和SIGPORF中的任意一个，先介绍一下setitimer函数：
+// [in]：which：定时器类型，可以选择下列3种之一
+// 　　　　#ITIMER_REAL：按照真实时间定时，时间到达时产生SIGALRM信号
+// 　　　　#ITIMER_VIRTUAL：按照进程在用户态占用的CPU时间定时，时间到达时产生SIGVTALRM信号
+// 　　　　#ITIMER_PROF：按照进程在用户态和内核态占用的CPU时间定时，时间到达时产生SIGPROF信号
+// [in]：new_value：包含设定的定时时间.
+// [out]：old_value：在重载定时时间前指定的定时器的重装载值和定时器剩余值，具体在后面介绍。
+
+
 #define UV_LOOP_PRIVATE_FIELDS                                                \
   unsigned long flags;                                                        \
   int backend_fd;                                                             \
@@ -328,6 +394,7 @@ typedef struct {
   uv_idle_cb idle_cb;                                                         \
   void* queue[2];                                                             \
 
+// 异步任务私有字段。wq_async 是回调函数，queue 作为队列节点，pending 表示当前是否 pending 中。
 #define UV_ASYNC_PRIVATE_FIELDS                                               \
   uv_async_cb async_cb;                                                       \
   void* queue[2];                                                             \
@@ -384,6 +451,9 @@ typedef struct {
   struct termios orig_termios;                                                \
   int mode;
 
+// 信号相关的独立字段。
+// 1）caught_signals 捕获的信号
+// 2）dispatched_signals 分发的信号
 #define UV_SIGNAL_PRIVATE_FIELDS                                              \
   /* RB_ENTRY(uv_signal_s) tree_entry; */                                     \
   struct {                                                                    \

@@ -22,6 +22,7 @@
 #ifndef UV_LINUX_H
 #define UV_LINUX_H
 
+// 这个文件和 unix.h 结合起来使用
 #define UV_PLATFORM_LOOP_FIELDS                                               \
   uv__io_t inotify_read_watcher;                                              \
   void* inotify_watchers;                                                     \

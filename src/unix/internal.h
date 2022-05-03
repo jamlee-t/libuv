@@ -208,6 +208,7 @@ ssize_t uv__recvmsg(int fd, struct msghdr *msg, int flags);
 void uv__make_close_pending(uv_handle_t* handle);
 int uv__getiovmax(void);
 
+// io 类型的 handle处理函数
 void uv__io_init(uv__io_t* w, uv__io_cb cb, int fd);
 void uv__io_start(uv_loop_t* loop, uv__io_t* w, unsigned int events);
 void uv__io_stop(uv_loop_t* loop, uv__io_t* w, unsigned int events);

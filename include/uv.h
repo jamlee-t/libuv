@@ -257,6 +257,7 @@ typedef enum {
   UV_METRICS_IDLE_TIME
 } uv_loop_option;
 
+// JAMLEE: loop 的执行模式。UV_RUN_ONCE 表示只执行 1 次，UV_RUN_NOWAIT 表示 poll io 阶段的 timeout 时间是 0
 typedef enum {
   UV_RUN_DEFAULT = 0,
   UV_RUN_ONCE,
@@ -860,6 +861,7 @@ UV_EXTERN int uv_poll_start(uv_poll_t* handle, int events, uv_poll_cb cb);
 UV_EXTERN int uv_poll_stop(uv_poll_t* handle);
 
 
+// uv_prepare_s handle 类型
 struct uv_prepare_s {
   UV_HANDLE_FIELDS
   UV_PREPARE_PRIVATE_FIELDS
@@ -880,6 +882,7 @@ UV_EXTERN int uv_check_start(uv_check_t* check, uv_check_cb cb);
 UV_EXTERN int uv_check_stop(uv_check_t* check);
 
 
+// uv_idle_s handle 类型
 struct uv_idle_s {
   UV_HANDLE_FIELDS
   UV_IDLE_PRIVATE_FIELDS
@@ -889,7 +892,7 @@ UV_EXTERN int uv_idle_init(uv_loop_t*, uv_idle_t* idle);
 UV_EXTERN int uv_idle_start(uv_idle_t* idle, uv_idle_cb cb);
 UV_EXTERN int uv_idle_stop(uv_idle_t* idle);
 
-
+// 异步执行是 1 种 handle。
 struct uv_async_s {
   UV_HANDLE_FIELDS
   UV_ASYNC_PRIVATE_FIELDS
@@ -1627,7 +1630,9 @@ UV_EXTERN int uv_fs_poll_getpath(uv_fs_poll_t* handle,
                                  char* buffer,
                                  size_t* size);
 
-
+// 信号 handle。
+// 1）signal_cb 信号接收到后，回调地址
+// 2）signum 数量
 struct uv_signal_s {
   UV_HANDLE_FIELDS
   uv_signal_cb signal_cb;
@@ -1725,7 +1730,6 @@ UV_EXTERN int uv_random(uv_loop_t* loop,
 # define UV_IF_NAMESIZE (16 + 1)
 #endif
 
-// JAMLEE: 锁和线程
 UV_EXTERN int uv_if_indextoname(unsigned int ifindex,
                                 char* buffer,
                                 size_t* size);
@@ -1834,7 +1838,12 @@ union uv_any_req {
 };
 #undef XX
 
-// JAMLEE: 核心结构体 loop
+// JAMLEE: 核心结构体 loop。
+// 1. UV_LOOP_PRIVATE_FIELDS 这里是 unix 共享的字段定义
+// 2. UV_PLATFORM_LOOP_FIELDS 这里是 linux 共享的字段定义
+// 3. stop_flag 当前 loop 是否处于停止状态。
+// 4. active_handles, 标志位 UV_HANDLE_REF 打开的 handle 计数。 
+// 5. handle_queue, 不管什么类型的 handle 都会在这个队列里存储。
 struct uv_loop_s {
   /* User data - use this for whatever. */
   void* data;

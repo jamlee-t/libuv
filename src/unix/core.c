@@ -103,12 +103,12 @@ STATIC_ASSERT(sizeof(&((uv_buf_t*) 0)->len) ==
 STATIC_ASSERT(offsetof(uv_buf_t, base) == offsetof(struct iovec, iov_base));
 STATIC_ASSERT(offsetof(uv_buf_t, len) == offsetof(struct iovec, iov_len));
 
-
+// JAMLEE: 取得时间戳的最快函数
 uint64_t uv_hrtime(void) {
   return uv__hrtime(UV_CLOCK_PRECISE);
 }
 
-
+// JAMLEE: 关闭 1 个handle。handle->close_cb 会设置为 close_cb。
 void uv_close(uv_handle_t* handle, uv_close_cb close_cb) {
   assert(!uv__is_closing(handle));
 
@@ -181,6 +181,7 @@ void uv_close(uv_handle_t* handle, uv_close_cb close_cb) {
   uv__make_close_pending(handle);
 }
 
+// 设置handle上的socket选项函数。仅支持 TCP，PIPE，UDP。
 int uv__socket_sockopt(uv_handle_t* handle, int optname, int* value) {
   int r;
   int fd;
@@ -308,7 +309,7 @@ static void uv__finish_close(uv_handle_t* handle) {
   }
 }
 
-
+// closing_handles 队列中的 handle 调用 uv__finish_close 关闭
 static void uv__run_closing_handles(uv_loop_t* loop) {
   uv_handle_t* p;
   uv_handle_t* q;
@@ -323,37 +324,37 @@ static void uv__run_closing_handles(uv_loop_t* loop) {
   }
 }
 
-
+// handle 是否在关闭中状态
 int uv_is_closing(const uv_handle_t* handle) {
   return uv__is_closing(handle);
 }
 
-
+// 获取 efd，当前 epoll_creata 创建的
 int uv_backend_fd(const uv_loop_t* loop) {
   return loop->backend_fd;
 }
 
-
+// 返回 0 意味着，下一轮执行将很快开始
 int uv_backend_timeout(const uv_loop_t* loop) {
-  if (loop->stop_flag != 0)
+  if (loop->stop_flag != 0) // 如果当前 loop 是设置了停止标志
     return 0;
 
-  if (!uv__has_active_handles(loop) && !uv__has_active_reqs(loop))
+  if (!uv__has_active_handles(loop) && !uv__has_active_reqs(loop)) // 没有激活的 handle 和 req。
     return 0;
 
-  if (!QUEUE_EMPTY(&loop->idle_handles))
+  if (!QUEUE_EMPTY(&loop->idle_handles)) // idle_handle 为空。在下一轮首部执行
     return 0;
 
-  if (!QUEUE_EMPTY(&loop->pending_queue))
+  if (!QUEUE_EMPTY(&loop->pending_queue)) // pending_queue 为空。在下一轮首部执行
     return 0;
 
-  if (loop->closing_handles)
+  if (loop->closing_handles) // 正在关闭 handles
     return 0;
 
   return uv__next_timeout(loop);
 }
 
-
+// JAMLEE: loop 是否在激活状态
 static int uv__loop_alive(const uv_loop_t* loop) {
   return uv__has_active_handles(loop) ||
          uv__has_active_reqs(loop) ||
@@ -368,7 +369,9 @@ int uv_loop_alive(const uv_loop_t* loop) {
 
 // JAMLEE: uv_run 启动 uv_loop 的程序, 和图对应
 int uv_run(uv_loop_t* loop, uv_run_mode mode) {
+  // poll io 是否有timeout。-1 无限等待 0 不等待 >1 等待具体毫秒 milliseconds
   int timeout;
+
   int r;
   int ran_pending;
 
@@ -376,21 +379,28 @@ int uv_run(uv_loop_t* loop, uv_run_mode mode) {
   if (!r)
     uv__update_time(loop);
 
+  // loop 循环的真面目
   while (r != 0 && loop->stop_flag == 0) {
-    uv__update_time(loop);
+    uv__update_time(loop); // 更新循环中的时间戳。定时器判断时间超时要看这个
     uv__run_timers(loop);
-    ran_pending = uv__run_pending(loop);
-    uv__run_idle(loop); // JAMLEE: 将底层的 handle 都运行起来
-    uv__run_prepare(loop);
+    ran_pending = uv__run_pending(loop); // 执行在 pending_handles 队列中的回调
+    uv__run_idle(loop); // JAMLEE: 执行 idle_handles 队列中的函数
+    uv__run_prepare(loop); // 执行 prepare_handles 队列中的函数
 
-    // JAMLEE: 这里有挂起时长设置。这个 timeout 的作用主要是使 epoll_pwait 能够有一个合理的超时时间
-    timeout = 0;
+    // 每个循环里 timeout = 0 都会执行, UV_RUN_ONCE 模式下 pending_queue 为空的情况下，uv_backend_timeout 决定是否有等待时间
+    // UV_RUN_DEFAULT 模式下 uv_backend_timeout 决定是否有等待时间
+    timeout = 0;    
     if ((mode == UV_RUN_ONCE && !ran_pending) || mode == UV_RUN_DEFAULT)
       timeout = uv_backend_timeout(loop);
 
     // JAMLEE: 这里有阻塞操作，会使得 cpu 挂起，以免一直占用 cpu。查看：Linux 阻塞与唤醒实现原理 https://smartkeyerror.com/Linux-Blocking
+    // 执行 poll_io 阶段。
+    // 1. idle， prepare， pending queue 等着运行的 timeout 设置为 0。
+    // 2. 无 active_handle, active_req 意味着 io_poll 没有事干，设置为0。
+    // 3. 否则，根据定时器是否有事件即将 timeout。如果也没有会 timeout = -1 。否则 timeout = 0 或者 timeout = diff
     uv__io_poll(loop, timeout);
 
+    // 这里计算得到 io_poll 的运行时间 provider_idle_time
     /* Run one final update on the provider_idle_time in case uv__io_poll
      * returned because the timeout expired, but no events were received. This
      * call will be ignored if the provider_entry_time was either never set (if
@@ -398,6 +408,7 @@ int uv_run(uv_loop_t* loop, uv_run_mode mode) {
      */
     uv__metrics_update_idle_time(loop);
 
+    // 执行 check_queue 队列中的函数
     uv__run_check(loop);
     uv__run_closing_handles(loop);
 
@@ -430,17 +441,17 @@ int uv_run(uv_loop_t* loop, uv_run_mode mode) {
   return r;
 }
 
-
+// JAMLEE: 更新 loop 中的 time 字段。
 void uv_update_time(uv_loop_t* loop) {
   uv__update_time(loop);
 }
 
-
+// JAMLEE: handle 是否在激活状态。
 int uv_is_active(const uv_handle_t* handle) {
   return uv__is_active(handle);
 }
 
-
+// JAMLEE: 打开 socket。
 /* Open a socket in non-blocking close-on-exec mode, atomically if possible. */
 int uv__socket(int domain, int type, int protocol) {
   int sockfd;
@@ -841,6 +852,7 @@ static unsigned int next_power_of_two(unsigned int val) {
   return val;
 }
 
+// 存放 fd 的是个数组，有可能存在 index 超过最大的问题。在这里重新分配下。
 static void maybe_resize(uv_loop_t* loop, unsigned int len) {
   uv__io_t** watchers;
   void* fake_watcher_list;
@@ -875,14 +887,22 @@ static void maybe_resize(uv_loop_t* loop, unsigned int len) {
   loop->nwatchers = nwatchers;
 }
 
+////////////////////////////////////////////////////////////////////////////////////////////////////////
+//
+// JAMLEE: 注册事件到 loop 的 io_watcher 上。fd 会添加到 watcher_queue, 在 poll io 阶段运行
+//
+///////////////////////////////////////////////////////////////////////////////////////////////////////
 
+// JAMLEE: 启动 io 阶段的 handle。
+// 1）信号 IO。
 void uv__io_init(uv__io_t* w, uv__io_cb cb, int fd) {
   assert(cb != NULL);
   assert(fd >= -1);
+  // 初始化 pending 队列和 watcher 队列
   QUEUE_INIT(&w->pending_queue);
   QUEUE_INIT(&w->watcher_queue);
-  w->cb = cb;
-  w->fd = fd;
+  w->cb = cb; // watcher 对应的回调函数
+  w->fd = fd; // watcher 对应的fd，被观测的 fd
   w->events = 0;
   w->pevents = 0;
 
@@ -892,17 +912,18 @@ void uv__io_init(uv__io_t* w, uv__io_cb cb, int fd) {
 #endif /* defined(UV_HAVE_KQUEUE) */
 }
 
-
-// JAMLEE: 注册事件到 loop 的 io_watcher 上
+// events 是：POLLIN 有数据可读。POLLOUT 写数据不会导致阻塞。POLLER 指定的文件描述符发生错误。还有其他定义在 poll.h
 void uv__io_start(uv_loop_t* loop, uv__io_t* w, unsigned int events) {
   assert(0 == (events & ~(POLLIN | POLLOUT | UV__POLLRDHUP | UV__POLLPRI)));
   assert(0 != events);
   assert(w->fd >= 0);
   assert(w->fd < INT_MAX);
 
+  // w->pevents 是 pending event mask。w->events 是当前的 events。
   w->pevents |= events;
   maybe_resize(loop, w->fd + 1);
 
+  // 如果当前的 w->events 和 w->pevents。说明 event 被 pending 了，直接返回。
 #if !defined(__sun)
   /* The event ports backend needs to rearm all file descriptors on each and
    * every tick of the event loop but the other backends allow us to
@@ -912,9 +933,12 @@ void uv__io_start(uv_loop_t* loop, uv__io_t* w, unsigned int events) {
     return;
 #endif
 
+  // 如果 watcher_queue 是空的话。&w->watcher_queue 插入&loop->watcher_queue到尾部。w->watcher_queue 只是 1个节点元素而已。
+  // 这个 watcher_queue 是 watch 的字段。用于把 watch 加入到某个队列。
   if (QUEUE_EMPTY(&w->watcher_queue))
     QUEUE_INSERT_TAIL(&loop->watcher_queue, &w->watcher_queue);
 
+  // 用 fd 做 key，可以查询 fd 对应的 watcher
   if (loop->watchers[w->fd] == NULL) {
     loop->watchers[w->fd] = w;
     loop->nfds++;

@@ -138,20 +138,23 @@ uint64_t uv_timer_get_due_in(const uv_timer_t* handle) {
   return handle->timeout - handle->loop->time;
 }
 
-
+// 预判 loop 的 poll io 的 timeout 时间
 int uv__next_timeout(const uv_loop_t* loop) {
   const struct heap_node* heap_node;
   const uv_timer_t* handle;
   uint64_t diff;
 
+  // 没有需要 timeout 的节点
   heap_node = heap_min(timer_heap(loop));
   if (heap_node == NULL)
     return -1; /* block indefinitely */
 
+  // 当前最快到时间的 handle 的 time 已经 timeout 了
   handle = container_of(heap_node, uv_timer_t, heap_node);
   if (handle->timeout <= loop->time)
     return 0;
 
+  // 如果最小的 timeout 大于当前时间。则等这个 diff 的时间
   diff = handle->timeout - loop->time;
   if (diff > INT_MAX)
     diff = INT_MAX;

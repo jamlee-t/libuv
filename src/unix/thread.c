@@ -415,7 +415,7 @@ void uv_rwlock_wrunlock(uv_rwlock_t* rwlock) {
     abort();
 }
 
-
+// 在多线程环境中，有些事仅需要执行一次。通常当初始化应用程序时，可以比较容易地将其放在main函数中。但当你写一个库时，就不能在main里面初始化了，你可以用静态初始化，但使用一次初始化（pthread_once）会比较容易些。
 void uv_once(uv_once_t* guard, void (*callback)(void)) {
   if (pthread_once(guard, callback))
     abort();

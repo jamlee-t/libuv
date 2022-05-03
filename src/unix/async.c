@@ -41,7 +41,7 @@
 static void uv__async_send(uv_loop_t* loop);
 static int uv__async_start(uv_loop_t* loop);
 
-
+// uv_async_t 类型的 handle。回调函数设置为 async_cb。
 int uv_async_init(uv_loop_t* loop, uv_async_t* handle, uv_async_cb async_cb) {
   int err;
 
@@ -59,7 +59,7 @@ int uv_async_init(uv_loop_t* loop, uv_async_t* handle, uv_async_cb async_cb) {
   return 0;
 }
 
-
+// 调用 aysnc handle，当前线程是线程池里的线程，发送 loop 线程。
 int uv_async_send(uv_async_t* handle) {
   /* Do a cheap read first. */
   if (ACCESS_ONCE(int, handle->pending) != 0)
@@ -164,7 +164,7 @@ static void uv__async_io(uv_loop_t* loop, uv__io_t* w, unsigned int events) {
   }
 }
 
-
+// 唤醒其他 thread 中运行的 loop，调用回调函数
 static void uv__async_send(uv_loop_t* loop) {
   const void* buf;
   ssize_t len;
@@ -184,6 +184,7 @@ static void uv__async_send(uv_loop_t* loop) {
   }
 #endif
 
+  // 写入内容到 fd
   do
     r = write(fd, buf, len);
   while (r == -1 && errno == EINTR);
@@ -198,7 +199,7 @@ static void uv__async_send(uv_loop_t* loop) {
   abort();
 }
 
-
+// 启动异步 loop 中的 async handle。
 static int uv__async_start(uv_loop_t* loop) {
   int pipefd[2];
   int err;
@@ -207,6 +208,10 @@ static int uv__async_start(uv_loop_t* loop) {
     return 0;
 
 #ifdef __linux__
+  // eventfd() 函数会创建一个 eventfd 对象，用户空间的应用程序可以用这个 eventfd 来实现事件的等待或通知机制。
+  // EFD_CLOEXEC：FD_CLOEXEC，简单说就是fork子进程时不继承，对于多线程的程序设上这个值不会有错的。
+  // EFD_NONBLOCK：文件会被设置成O_NONBLOCK，一般要设置。
+  // EFD_SEMAPHORE：（2.6.30以后支持）支持semophore语义的read，简单说就值递减1。 
   err = eventfd(0, EFD_CLOEXEC | EFD_NONBLOCK);
   if (err < 0)
     return UV__ERR(errno);
@@ -218,7 +223,7 @@ static int uv__async_start(uv_loop_t* loop) {
   if (err < 0)
     return err;
 #endif
-
+  // 初始化 async_io_watcher, uv__io_t 类型。watch 的文件描述符是 pipefd[0]。
   uv__io_init(&loop->async_io_watcher, uv__async_io, pipefd[0]);
   uv__io_start(loop, &loop->async_io_watcher, POLLIN);
   loop->async_wfd = pipefd[1];

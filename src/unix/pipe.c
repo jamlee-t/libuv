@@ -380,7 +380,7 @@ int uv_pipe_chmod(uv_pipe_t* handle, int mode) {
   return r != -1 ? 0 : UV__ERR(errno);
 }
 
-
+// 创建 pipe，适应不同 unix 系统。linux 下是 pipe 函数 。
 int uv_pipe(uv_os_fd_t fds[2], int read_flags, int write_flags) {
   uv_os_fd_t temp[2];
   int err;
@@ -427,7 +427,7 @@ fail:
   return err;
 }
 
-
+// 封装 uv_pipe。
 int uv__make_pipe(int fds[2], int flags) {
   return uv_pipe(fds,
                  flags & UV_NONBLOCK_PIPE,

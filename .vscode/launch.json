@@ -4,7 +4,34 @@
     // 欲了解更多信息，请访问: https://go.microsoft.com/fwlink/?linkid=830387
     "version": "0.2.0",
     "configurations": [
-
+        {
+            "name": "(linux-gdb)async",
+            "type": "cppdbg",
+            "request": "launch",
+            "preLaunchTask": "build-async",
+            "program": "${workspaceFolder}/bin/async",
+            "args": [],
+            "stopAtEntry": true,
+            "cwd": "${workspaceFolder}",
+            "environment": [],
+            "externalConsole": false,
+            "miDebuggerPath": "/usr/bin/gdb",
+            "MIMode": "gdb"
+        },
+        {
+            "name": "(linux-gdb)idle",
+            "type": "cppdbg",
+            "request": "launch",
+            "preLaunchTask": "build-basic-idle",
+            "program": "${workspaceFolder}/bin/idle",
+            "args": [],
+            "stopAtEntry": true,
+            "cwd": "${workspaceFolder}",
+            "environment": [],
+            "externalConsole": false,
+            "miDebuggerPath": "/usr/bin/gdb",
+            "MIMode": "gdb"
+        },
         {
             "name": "(linux-gdb)fork-demo",
             "type": "cppdbg",

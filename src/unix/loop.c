@@ -27,6 +27,7 @@
 #include <string.h>
 #include <unistd.h>
 
+// 便捷函数初始化 loop
 int uv_loop_init(uv_loop_t* loop) {
   uv__loop_internal_fields_t* lfields;
   void* saved_data;
@@ -48,7 +49,7 @@ int uv_loop_init(uv_loop_t* loop) {
 
   heap_init((struct heap*) &loop->timer_heap);
 
-  // 初始化 handle 的队列们
+  // 初始化 handle 的队列。
   QUEUE_INIT(&loop->wq);
   QUEUE_INIT(&loop->idle_handles);
   QUEUE_INIT(&loop->async_handles);
@@ -62,13 +63,13 @@ int uv_loop_init(uv_loop_t* loop) {
   loop->watchers = NULL;
   loop->nwatchers = 0;
   QUEUE_INIT(&loop->pending_queue);
-  QUEUE_INIT(&loop->watcher_queue);
+  QUEUE_INIT(&loop->watcher_queue); // 观察者队列
 
   loop->closing_handles = NULL;
-  uv__update_time(loop);
+  uv__update_time(loop); // 更新当前时间
   loop->async_io_watcher.fd = -1;
   loop->async_wfd = -1;
-  loop->signal_pipefd[0] = -1;
+  loop->signal_pipefd[0] = -1; // 信号对应的管道。在 uv__signal_loop_once_init 中
   loop->signal_pipefd[1] = -1;
   loop->backend_fd = -1;
   loop->emfile_fd = -1;
@@ -76,31 +77,42 @@ int uv_loop_init(uv_loop_t* loop) {
   loop->timer_counter = 0;
   loop->stop_flag = 0;
 
+  // 执行OS对应的初始化
   err = uv__platform_loop_init(loop);
   if (err)
     goto fail_platform_init;
 
+  // 初始化全局进程信号。这里全局有包含子进程的含义
+  // loop->child_watcher 读取来自子进程的信息。类型是 uv_signal_t。uv_signal_init 初始化时会初始化 loop->signal_pipefd。
+  // child_watcher 这个时候还没有放到 loop->watcher_queue 中
   uv__signal_global_once_init();
   err = uv_signal_init(loop, &loop->child_watcher);
   if (err)
     goto fail_signal_init;
 
+  // 设置 uv_signal_t 类型的 handle 的 flag。UV_HANDLE_REF 设置为 0。
   uv__handle_unref(&loop->child_watcher);
-  loop->child_watcher.flags |= UV_HANDLE_INTERNAL;
-  QUEUE_INIT(&loop->process_handles);
+  loop->child_watcher.flags |= UV_HANDLE_INTERNAL; // 这个 handle 设置为内置的 handle
+  QUEUE_INIT(&loop->process_handles); // 初始化 process_handles 队列
 
+  // uv_rwlock_t 类型的 cloexec_lock。 loop->cloexec_lock 是类型为 pthread_rwlock_t 的读写锁。
+  // int pthread_rwlock_init(pthread_rwlock_t *rwlock, \ const pthread_rwlockattr_t *attr);
   err = uv_rwlock_init(&loop->cloexec_lock);
   if (err)
     goto fail_rwlock_init;
 
+  // wq_mutex 互斥锁。loop->wq 字段操作的互斥锁。
   err = uv_mutex_init(&loop->wq_mutex);
   if (err)
     goto fail_mutex_init;
 
+  // loop->wq_async异步handle，注册到 loop->async_handles 上去。
+  // loop->wq_async 初始化，是 uv_async_t 类型的 handle。设置其异步函数 uv__work_done。
   err = uv_async_init(loop, &loop->wq_async, uv__work_done);
   if (err)
     goto fail_async_init;
 
+  // loop->wq_async 设置为 libuv 内部类型的 handle。
   uv__handle_unref(&loop->wq_async);
   loop->wq_async.flags |= UV_HANDLE_INTERNAL;
 
@@ -163,7 +175,7 @@ int uv_loop_fork(uv_loop_t* loop) {
   return 0;
 }
 
-
+// 关闭 loop
 void uv__loop_close(uv_loop_t* loop) {
   uv__loop_internal_fields_t* lfields;
 

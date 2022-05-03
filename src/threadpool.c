@@ -50,7 +50,7 @@ static void uv__cancelled(struct uv__work* w) {
   abort();
 }
 
-
+// worker 是线程池的实现。
 /* To avoid deadlock with uv_cancel() it's crucial that the worker
  * never holds the global mutex and the loop-local mutex at the same time.
  */
@@ -250,7 +250,7 @@ static void init_once(void) {
   init_threads();
 }
 
-
+// 提交 worker 给线程池。req 通过这种方式运行
 void uv__work_submit(uv_loop_t* loop,
                      struct uv__work* w,
                      enum uv__work_kind kind,
@@ -289,7 +289,7 @@ static int uv__work_cancel(uv_loop_t* loop, uv_req_t* req, struct uv__work* w) {
   return 0;
 }
 
-
+// workder 执行完毕后的，异步任务的回调函数。放在 async 异步执行阶段。
 void uv__work_done(uv_async_t* handle) {
   struct uv__work* w;
   uv_loop_t* loop;
@@ -297,18 +297,21 @@ void uv__work_done(uv_async_t* handle) {
   QUEUE wq;
   int err;
 
+  // 加锁，将 loop->wq 移动到 wq 中。handle 是 loop 的 wq_async 成员。根据这个消息获取到 loop 指针。
+  // container_of：那就是根据一个结构体变量中的一个域成员变量的指针来获取指向整个结构体变量的指针。
   loop = container_of(handle, uv_loop_t, wq_async);
   uv_mutex_lock(&loop->wq_mutex);
   QUEUE_MOVE(&loop->wq, &wq);
   uv_mutex_unlock(&loop->wq_mutex);
 
+  // 遍历 wq
   while (!QUEUE_EMPTY(&wq)) {
     q = QUEUE_HEAD(&wq);
     QUEUE_REMOVE(q);
-
+    // q 是 uv__work 的 wq 成员。根据这个获取到 当前 wq 对应的 work。
     w = container_of(q, struct uv__work, wq);
     err = (w->work == uv__cancelled) ? UV_ECANCELED : 0;
-    w->done(w, err);
+    w->done(w, err); // worker 执行完毕后，执行 done
   }
 }
 
@@ -332,7 +335,7 @@ static void uv__queue_done(struct uv__work* w, int err) {
   req->after_work_cb(req, err);
 }
 
-
+// req 提交到 wq 中。最终还是 uv__work_submit 方法。
 int uv_queue_work(uv_loop_t* loop,
                   uv_work_t* req,
                   uv_work_cb work_cb,

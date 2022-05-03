@@ -4,9 +4,19 @@
     "version": "2.0.0",
     "tasks": [
         {
+            "label": "build-async",
+            "type": "shell",
+            "command": "mkdir -p ./bin && gcc 0_note/async/main.c -o bin/async --verbose  -g -O0 -I./include/ -L./.libs -luv"
+        },
+        {
+            "label": "build-basic-idle",
+            "type": "shell",
+            "command": "mkdir -p ./bin && gcc 0_note/basic-idle/main.c -o bin/idle --verbose  -g -O0 -I./include/ -L./.libs -luv"
+        },
+        {
             "label": "build-fork",
             "type": "shell",
-            "command": "gcc  -g -O0 00_note/fork-demo/main.c -o fork-demo"
+            "command": "gcc -g -O0 0_note/fork-demo/main.c -o fork-demo"
         },
         {
             "label": "build-spawn-static-link",
