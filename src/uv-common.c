@@ -218,6 +218,7 @@ const char* uv_strerror(int err) {
 #undef UV_STRERROR_GEN
 
 
+// 便捷初始化linux的 sockaddr_in
 int uv_ip4_addr(const char* ip, int port, struct sockaddr_in* addr) {
   memset(addr, 0, sizeof(*addr));
   addr->sin_family = AF_INET;
@@ -322,7 +323,7 @@ int uv_udp_init(uv_loop_t* loop, uv_udp_t* handle) {
   return uv_udp_init_ex(loop, handle, AF_UNSPEC);
 }
 
-
+// bind 函数的快捷方法。flags 可以是1个或者多个，例如： UV_UDP_IPV6ONLY | UV_UDP_REUSEADDR | UV_UDP_LINUX_RECVERR
 int uv_udp_bind(uv_udp_t* handle,
                 const struct sockaddr* addr,
                 unsigned int flags) {
@@ -403,7 +404,7 @@ int uv__udp_is_connected(uv_udp_t* handle) {
   return addrlen > 0;
 }
 
-
+// 发送前检查 handle 和 地址。
 int uv__udp_check_before_send(uv_udp_t* handle, const struct sockaddr* addr) {
   unsigned int addrlen;
 
@@ -434,7 +435,7 @@ int uv__udp_check_before_send(uv_udp_t* handle, const struct sockaddr* addr) {
   return addrlen;
 }
 
-
+// uv_udp_send 包装linux send 函数。最终是1个请求的形式，放置到 loop 中
 int uv_udp_send(uv_udp_send_t* req,
                 uv_udp_t* handle,
                 const uv_buf_t bufs[],
@@ -464,7 +465,7 @@ int uv_udp_try_send(uv_udp_t* handle,
   return uv__udp_try_send(handle, bufs, nbufs, addr, addrlen);
 }
 
-
+// 启动 udp server。包装了 uv__udp_recv_start。底层会调用 uv__io_start 和 uv__handle_start 来启动 handle，其实就是个 io watcher 类型的 handle。
 int uv_udp_recv_start(uv_udp_t* handle,
                       uv_alloc_cb alloc_cb,
                       uv_udp_recv_cb recv_cb) {

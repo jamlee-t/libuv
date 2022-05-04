@@ -287,7 +287,6 @@ typedef struct {
 // [in]：new_value：包含设定的定时时间.
 // [out]：old_value：在重载定时时间前指定的定时器的重装载值和定时器剩余值，具体在后面介绍。
 
-
 #define UV_LOOP_PRIVATE_FIELDS                                                \
   unsigned long flags;                                                        \
   int backend_fd;                                                             \
@@ -369,6 +368,7 @@ typedef struct {
 
 #define UV_TCP_PRIVATE_FIELDS /* empty */
 
+// request 会挂载到 write_queue
 #define UV_UDP_PRIVATE_FIELDS                                                 \
   uv_alloc_cb alloc_cb;                                                       \
   uv_udp_recv_cb recv_cb;                                                     \
@@ -394,7 +394,10 @@ typedef struct {
   uv_idle_cb idle_cb;                                                         \
   void* queue[2];                                                             \
 
-// 异步任务私有字段。wq_async 是回调函数，queue 作为队列节点，pending 表示当前是否 pending 中。
+// 异步任务私有字段。
+// 1. async_cb 是回调函数
+// 2. queue 作为在 async_handles 队列节点
+// 3. pending 表示当前是否 pending 中
 #define UV_ASYNC_PRIVATE_FIELDS                                               \
   uv_async_cb async_cb;                                                       \
   void* queue[2];                                                             \

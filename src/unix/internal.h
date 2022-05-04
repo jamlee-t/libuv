@@ -339,6 +339,8 @@ int uv__getsockpeername(const uv_handle_t* handle,
     defined(__FreeBSD__)          ||                                      \
     defined(__FreeBSD_kernel__)   ||                                       \
     defined(__DragonFly__)
+
+// 是否开启了消息结构体功能。例如：udp 接收数据时的消息体。
 #define HAVE_MMSG 1
 struct uv__mmsghdr {
   struct msghdr msg_hdr;

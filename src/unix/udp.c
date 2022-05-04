@@ -54,6 +54,7 @@ static int uv__udp_maybe_deferred_bind(uv_udp_t* handle,
                                        int domain,
                                        unsigned int flags);
 
+// 接收的消息内容是 MMSG 结构体
 #if HAVE_MMSG
 
 #define UV__MMSG_MAXWIDTH 20
@@ -167,13 +168,14 @@ static void uv__udp_run_completed(uv_udp_t* handle) {
   handle->flags &= ~UV_HANDLE_UDP_PROCESSING;
 }
 
-
+// udp handle 对应的回调函数，会分发读写事件
 static void uv__udp_io(uv_loop_t* loop, uv__io_t* w, unsigned int revents) {
   uv_udp_t* handle;
 
   handle = container_of(w, uv_udp_t, io_watcher);
   assert(handle->type == UV_UDP);
-
+  
+  // 根据读写事件类型分发
   if (revents & POLLIN)
     uv__udp_recvmsg(handle);
 
@@ -183,6 +185,7 @@ static void uv__udp_io(uv_loop_t* loop, uv__io_t* w, unsigned int revents) {
   }
 }
 
+// 接收udp数据，使用 recv_cb 回调就可以了。
 #if HAVE_MMSG
 static int uv__udp_recvmmsg(uv_udp_t* handle, uv_buf_t* buf) {
   struct sockaddr_in6 peers[UV__MMSG_MAXWIDTH];
@@ -310,6 +313,7 @@ static void uv__udp_recvmsg(uv_udp_t* handle) {
       && handle->recv_cb != NULL);
 }
 
+// 发送udp数据，使用 req 可以了。req 存在于 1 个 udp->write_queue 队列
 #if HAVE_MMSG
 static void uv__udp_sendmmsg(uv_udp_t* handle) {
   uv_udp_send_t* req;
@@ -326,7 +330,7 @@ static void uv__udp_sendmmsg(uv_udp_t* handle) {
 write_queue_drain:
   for (pkts = 0, q = QUEUE_HEAD(&handle->write_queue);
        pkts < UV__MMSG_MAXWIDTH && q != &handle->write_queue;
-       ++pkts, q = QUEUE_HEAD(q)) {
+       ++pkts, q = QUEUE_HEAD(q)) { // for 循环取到 queue 的 req, 执行写入操作
     assert(q != NULL);
     req = QUEUE_DATA(q, uv_udp_send_t, queue);
     assert(req != NULL);
@@ -544,9 +548,10 @@ int uv__udp_bind(uv_udp_t* handle,
   if ((flags & UV_UDP_IPV6ONLY) && addr->sa_family != AF_INET6)
     return UV_EINVAL;
 
+  // 首先 uv_udp_t 类型的 handle 会对应 1 个 io watcher。
   fd = handle->io_watcher.fd;
   if (fd == -1) {
-    err = uv__socket(addr->sa_family, SOCK_DGRAM, 0);
+    err = uv__socket(addr->sa_family, SOCK_DGRAM, 0); // 这里所谓的 bind 会创建 socket。然后初始化 handle
     if (err < 0)
       return err;
     fd = err;
@@ -675,7 +680,7 @@ int uv__udp_disconnect(uv_udp_t* handle) {
     return 0;
 }
 
-
+// 发送请求。
 int uv__udp_send(uv_udp_send_t* req,
                  uv_udp_t* handle,
                  const uv_buf_t bufs[],
@@ -1153,7 +1158,7 @@ static int uv__setsockopt_maybe_char(uv_udp_t* handle,
   return uv__setsockopt(handle, option4, option6, &arg, sizeof(arg));
 }
 
-
+// SO_BROADCAST，允许或禁止发送广播数据。
 int uv_udp_set_broadcast(uv_udp_t* handle, int on) {
   if (setsockopt(handle->io_watcher.fd,
                  SOL_SOCKET,
@@ -1322,7 +1327,7 @@ int uv_udp_getsockname(const uv_udp_t* handle,
                              namelen);
 }
 
-
+// 启动 udp server
 int uv__udp_recv_start(uv_udp_t* handle,
                        uv_alloc_cb alloc_cb,
                        uv_udp_recv_cb recv_cb) {

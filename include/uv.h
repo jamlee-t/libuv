@@ -446,6 +446,16 @@ struct uv_shutdown_s {
 ///////////////////////////////////////////////////////////////////////////////
 
 // JAMLEE: 定义 handle 的非平台特定的字段
+// 1. data 意味着每个 handle 都可以携带 1 个 data
+// 2. loop handle 所属的 loop
+// 3. type , handle 的类型
+// 4. close_cb 关闭 handle 时的回调
+// 5. handle_queue, loop->handle_queue 作为队列插入时用到
+// 6. u 保留字段
+
+// Linux: UV_HANDLE_PRIVATE_FIELDS
+//  uv_handle_t* next_closing;                                               
+//  unsigned int flags;  handle 的标志
 #define UV_HANDLE_FIELDS                                                      \
   /* public */                                                                \
   void* data;                                                                 \

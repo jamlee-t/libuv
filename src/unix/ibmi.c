@@ -19,6 +19,8 @@
  * IN THE SOFTWARE.
  */
 
+// IBM i is one of three operating systems that run on IBM Power. At its core, the IBM i platform is designed to adapt to the ever-changing needs of both business and computing. Its defining characteristic, the “integration” represented by the “i” in IBM i, can help you gain more value from advanced technology with fewer resources and higher reliability.
+
 #include "uv.h"
 #include "internal.h"
 

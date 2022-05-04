@@ -451,7 +451,7 @@ int uv_is_active(const uv_handle_t* handle) {
   return uv__is_active(handle);
 }
 
-// JAMLEE: 打开 socket。
+// JAMLEE: 打开 socket。包装linux 的 socket 系统调用的便捷函数
 /* Open a socket in non-blocking close-on-exec mode, atomically if possible. */
 int uv__socket(int domain, int type, int protocol) {
   int sockfd;
@@ -489,6 +489,7 @@ int uv__socket(int domain, int type, int protocol) {
   return sockfd;
 }
 
+// JAMLEE: open。包装linux 的 open 系统调用的便捷函数
 /* get a file pointer to a file in read-only and close-on-exec mode */
 FILE* uv__open_file(const char* path) {
   int fd;
