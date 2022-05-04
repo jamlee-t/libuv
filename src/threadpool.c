@@ -182,7 +182,7 @@ void uv__threadpool_cleanup(void) {
   nthreads = 0;
 }
 
-
+// 第一次提交 worker 时，需要初始化线程
 static void init_threads(void) {
   unsigned int i;
   const char* val;
@@ -289,7 +289,7 @@ static int uv__work_cancel(uv_loop_t* loop, uv_req_t* req, struct uv__work* w) {
   return 0;
 }
 
-// workder 执行完毕后的，异步任务的回调函数。放在 async 异步执行阶段。
+// 每项 work 执行完毕后的，删除这项任务，然后调用 done
 void uv__work_done(uv_async_t* handle) {
   struct uv__work* w;
   uv_loop_t* loop;

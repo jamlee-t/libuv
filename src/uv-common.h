@@ -60,6 +60,13 @@ extern int snprintf(char*, size_t, const char*, ...);
 #define STATIC_ASSERT(expr)                                                   \
   void uv__static_assert(int static_assert_failed[1 - 2 * !(expr)])
 
+// 定义 gcc 中变量的原子操作。__ATOMIC_RELAXED是MEMORDER参数
+// __ATOMIC_RELAXED：最低约束等级，表示没有线程间排序约束
+// __ATOMIC_CONSUME：官方表示因为C++11的memory_order_consume语义不足，当前使用更强的__ATOMIC_ACQUIRE来实现。
+// __ATOMIC_ACQUIRE：对释放操作创建线程间happens-before限制，防止代码在操作前的意外hoisting
+// __ATOMIC_RELEASE：对获取操作创建线程间happens-before限制，防止代码在操作后的意外sinking
+// __ATOMIC_ACQ_REL：结合了前述两种限制
+// __ATOMIC_SEQ_CST：约束最强
 #if defined(__GNUC__) && (__GNUC__ > 4 || __GNUC__ == 4 && __GNUC_MINOR__ >= 7)
 #define uv__load_relaxed(p) __atomic_load_n(p, __ATOMIC_RELAXED)
 #define uv__store_relaxed(p, v) __atomic_store_n(p, v, __ATOMIC_RELAXED)

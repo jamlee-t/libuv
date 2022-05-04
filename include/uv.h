@@ -1129,6 +1129,8 @@ UV_EXTERN int uv_kill(int pid, int signum);
 UV_EXTERN uv_pid_t uv_process_get_pid(const uv_process_t*);
 
 
+// uv_req_t
+// uv_work_s 提交给多线程的线程池.
 /*
  * uv_work_t is a subclass of uv_req_t.
  */
@@ -1323,7 +1325,9 @@ UV_EXTERN int uv_os_uname(uv_utsname_t* buffer);
 
 UV_EXTERN uint64_t uv_metrics_idle_time(uv_loop_t* loop);
 
-// JAMLEE: 文件操作函数
+/////////////////////////////////////////////////////////////
+// JAMLEE: 文件操作函数, 代表对所有的操作系统的文件操作的统一的封装。
+/////////////////////////////////////////////////////////////
 typedef enum {
   UV_FS_UNKNOWN = -1,
   UV_FS_CUSTOM,
@@ -1372,6 +1376,13 @@ struct uv_dir_s {
   UV_DIR_PRIVATE_FIELDS
 };
 
+// 文件操作 req
+// 1. fs_type 文件操作类型, 例如：修改文件所有者
+// 2. cb 文件操作完成后的回调
+// 3. 文件的操作的返回码
+// 4. ptr 文件操作返回的数据
+// 5. path 文件对应的路径
+// 6. statbuf 文件状态结构体
 /* uv_fs_t is a subclass of uv_req_t. */
 struct uv_fs_s {
   UV_REQ_FIELDS

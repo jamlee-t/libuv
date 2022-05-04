@@ -98,6 +98,7 @@
 extern char *mkdtemp(char *template); /* See issue #740 on AIX < 7 */
 #endif
 
+// 初始化 request
 #define INIT(subtype)                                                         \
   do {                                                                        \
     if (req == NULL)                                                          \
@@ -114,6 +115,7 @@ extern char *mkdtemp(char *template); /* See issue #740 on AIX < 7 */
   }                                                                           \
   while (0)
 
+// 设置 req 对应的 path 地址
 #define PATH                                                                  \
   do {                                                                        \
     assert(path != NULL);                                                     \
@@ -147,6 +149,11 @@ extern char *mkdtemp(char *template); /* See issue #740 on AIX < 7 */
   }                                                                           \
   while (0)
 
+// 如果回调函数不为空，任务提交线程池，然后执行回调。否则调用 uv__fs_work
+// 参数 3
+// UV__WORK_CPU
+// UV__WORK_FAST_IO
+// UV__WORK_SLOW_IO
 #define POST                                                                  \
   do {                                                                        \
     if (cb != NULL) {                                                         \
@@ -376,7 +383,7 @@ clobber:
   return r;
 }
 
-
+// 打开 req 上携带的 path，返回 fd 值为 r
 static ssize_t uv__fs_open(uv_fs_t* req) {
 #ifdef O_CLOEXEC
   return open(req->path, req->flags | O_CLOEXEC, req->mode);
@@ -405,7 +412,7 @@ static ssize_t uv__fs_open(uv_fs_t* req) {
 #endif  /* O_CLOEXEC */
 }
 
-
+// 封装 linux 的 preadv 函数，off 是偏移
 #if !HAVE_PREADV
 static ssize_t uv__fs_preadv(uv_file fd,
                              uv_buf_t* bufs,
@@ -455,24 +462,42 @@ static ssize_t uv__fs_preadv(uv_file fd,
 }
 #endif
 
+// uv__fs_read 对 req 填入读入的数据
 
+// read-pread64-readv-preadv-preadv2（https://evian-zhang.github.io/introduction-to-linux-x86_64-syscall/src/filesystem/read-pread64-readv-preadv-preadv2.html）
+// 我们知道，更改文件偏移有单独的系统调用lseek，因此，如果我们要从某个特定的位置读取数据，可以lseek+read，也可以pread。但是，系统调用实际上是一个复杂的耗时操作，所以pread就用一次系统调用解决了两个系统调用的问题。
+// 第二，是读多少的问题。read和pread读取的字节数一定不大于count，但有可能小于count。假设说我们的二进制文件只有上述6个字节。那么，如果我们read了8个字节，后2个字节自然是无法被读取的。因此，只能读取到6个字节，read也将返回6。除此之外，还有很多可能会让read和pread读取的字节小于count。比如说，从一个终端读取（输入的字节小于其需求的字节），或者在读取时被某些信号中断。
+// 此外，除了读的字节小于count之外，read和pread还有可能读取失败。此时的返回值将是-1。我们可以用errno查看其错误。文件描述符不可读或无效（EBADF），buf不可使用（EFAULT），文件描述符是目录而非文件（EISDIR）等等，这些都有可能直接造成读取的错误。对于以非阻塞形式打开的文件，还可能返回EAGAIN或EWOULDBLOCK，详情请见open。
+// 第三，是读完当read或pread读取结束后的工作。read会更新文件描述符中的文件偏移，它们读了多少字节，就向后移动多少字节。但是，值得注意的是，pread并不会更新文件偏移。pread不更新文件偏移这一点对于多线程的程序来说极其有用。我们知道，多条线程有可能共用同一个文件描述符，但文件偏移是存储在文件描述符中。如果我们在多线程中使用read，会导致文件偏移混乱；但是，如果我们使用pread，则会完满避免这个问题。
+// 第四，是如何读。在Linux的哲学中，如何读并不是read和pread能决定的，而是由文件描述符本身决定的。文件描述符在创建的时候，就决定了它将被如何读取，比如说是否阻塞等等。
+
+// 读取 req 中的信息
+// ssize_t read(int fd, void *buf, size_t nbyte);
+// ssize_t pread(int fd, void *buf, size_t nbyte, off_t offset);
+// ssize_t readv(int fd, const struct iovec *iov, int iovcnt);
+// ssize_t preadv(int fd, const struct iovec *iov, int iovcnt,  off_t offset);
+// https://blog.csdn.net/chuanglan/article/details/103546527
+
+// 1. 而 pread 则是从指定的 offset 处开始读，这个 offset 是相对于 0 的一个绝对值，与 fd 当前的 offset 没有关系。
+// 2. readv 则是从 fd 中读取数据到多个 buf，buf 数为 iovcnt，每个 buf 有自己的长度（可以一样），一个 buf 写满（写指读出数据并保存），才接着写下一个 buf，依次类推。preadv 与 readv 的关系，与上述 read 和 pread 的关系一样。
 static ssize_t uv__fs_read(uv_fs_t* req) {
 #if defined(__linux__)
   static int no_preadv;
 #endif
-  unsigned int iovmax;
-  ssize_t result;
+  unsigned int iovmax; // 最大的 nbufs。req 的不可以超过这个。
+  ssize_t result; // 读了多少字节的字节数
 
+  // readv 时决定有多少个 bufs。bufs是struct iovec的数组。
   iovmax = uv__getiovmax();
   if (req->nbufs > iovmax)
     req->nbufs = iovmax;
 
-  if (req->off < 0) {
+  if (req->off < 0) { // 如果 req->off小于，表示不是 pread。只可以在一个线程中调用
     if (req->nbufs == 1)
       result = read(req->file, req->bufs[0].base, req->bufs[0].len);
     else
       result = readv(req->file, (struct iovec*) req->bufs, req->nbufs);
-  } else {
+  } else { // 否则是 pread，下次读取数据可以是在另外 1 个线程
     if (req->nbufs == 1) {
       result = pread(req->file, req->bufs[0].base, req->bufs[0].len, req->off);
       goto done;
@@ -485,7 +510,7 @@ static ssize_t uv__fs_read(uv_fs_t* req) {
     if (uv__load_relaxed(&no_preadv)) retry:
 # endif
     {
-      result = uv__fs_preadv(req->file, req->bufs, req->nbufs, req->off);
+      result = uv__fs_preadv(req->file, req->bufs, req->nbufs, req->off); // 使用 uv 包装的 preadv 函数
     }
 # if defined(__linux__)
     else {
@@ -504,10 +529,10 @@ static ssize_t uv__fs_read(uv_fs_t* req) {
 
 done:
   /* Early cleanup of bufs allocation, since we're done with it. */
-  if (req->bufs != req->bufsml)
+  if (req->bufs != req->bufsml) // bufsml 不是 req->bufs，则释放 buf
     uv__free(req->bufs);
 
-  req->bufs = NULL;
+  req->bufs = NULL; // 读取过的 buf 置空
   req->nbufs = 0;
 
 #ifdef __PASE__
@@ -522,7 +547,7 @@ done:
   }
 #endif
 
-  return result;
+  return result; // 返回读取的字段结果
 }
 
 
@@ -532,6 +557,7 @@ done:
 #define UV_CONST_DIRENT const uv__dirent_t
 #endif
 
+// 目录扫描函数
 
 static int uv__fs_scandir_filter(UV_CONST_DIRENT* dent) {
   return strcmp(dent->d_name, ".") != 0 && strcmp(dent->d_name, "..") != 0;
@@ -1595,6 +1621,7 @@ static size_t uv__fs_buf_offset(uv_buf_t* bufs, size_t size) {
   return offset;
 }
 
+// 线程池中 work, 执行写入请求数据。包装了 uv__fs_write 方法
 static ssize_t uv__fs_write_all(uv_fs_t* req) {
   unsigned int iovmax;
   unsigned int nbufs;
@@ -1640,7 +1667,7 @@ static ssize_t uv__fs_write_all(uv_fs_t* req) {
   return total;
 }
 
-
+// 执行 fs 的操作，直接调用系统调用。这里可以是 uv__fs_read、
 static void uv__fs_work(struct uv__work* w) {
   int retry_on_eintr;
   uv_fs_t* req;
@@ -1653,6 +1680,7 @@ static void uv__fs_work(struct uv__work* w) {
   do {
     errno = 0;
 
+// 定义 X 操作。比如修改权限，那么 r=chmod(req->path, req->mode)
 #define X(type, action)                                                       \
   case UV_FS_ ## type:                                                        \
     r = action;                                                               \
@@ -1926,7 +1954,7 @@ int uv_fs_mkstemp(uv_loop_t* loop,
   POST;
 }
 
-
+// 打开文件，uv_fs_t 是 req。打开完毕后执行 uv_fs_cb
 int uv_fs_open(uv_loop_t* loop,
                uv_fs_t* req,
                const char* path,
@@ -1940,7 +1968,7 @@ int uv_fs_open(uv_loop_t* loop,
   POST;
 }
 
-
+// 读取文件，uv_fs_t 是 req。在 on_open 函数中调用 uv_fs_read。
 int uv_fs_read(uv_loop_t* loop, uv_fs_t* req,
                uv_file file,
                const uv_buf_t bufs[],
@@ -2109,7 +2137,7 @@ int uv_fs_utime(uv_loop_t* loop,
   POST;
 }
 
-
+// uv_fs_t 的写入执行。当写入完毕之后，调用 cb 函数。cb 函数中可以发起新的写入，持续不断的写下去。
 int uv_fs_write(uv_loop_t* loop,
                 uv_fs_t* req,
                 uv_file file,

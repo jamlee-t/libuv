@@ -410,6 +410,7 @@ typedef struct {
   uint64_t repeat;                                                            \
   uint64_t start_id;
 
+// uv_req_s
 #define UV_GETADDRINFO_PRIVATE_FIELDS                                         \
   struct uv__work work_req;                                                   \
   uv_getaddrinfo_cb cb;                                                       \
@@ -419,6 +420,7 @@ typedef struct {
   struct addrinfo* addrinfo;                                                  \
   int retcode;
 
+// uv_req_s
 #define UV_GETNAMEINFO_PRIVATE_FIELDS                                         \
   struct uv__work work_req;                                                   \
   uv_getnameinfo_cb getnameinfo_cb;                                           \
@@ -432,6 +434,17 @@ typedef struct {
   void* queue[2];                                                             \
   int status;                                                                 \
 
+// uv_req_s 的 uv_fs_s 的私有字段
+// 1. new_path 文件操作涉及两个路径时，第二个路径参数。
+// 2. file 文件描述符。
+// 3. flags 
+// 4. mode 文件操作模式
+// 5. nbufs, bufs。 bufs的数量和内容
+// 6. off offset 也就是文件的偏移
+// 7. uid, gid 保存需要设置的 uid 和 gid，例如 chmod 的时候
+// 8. atime, mtime 保存需要设置的文件修改、访问时间，例如 fs.utimes 的时候
+// 9. work_req 异步的时候用于插入任务队列，保存工作函数，回调函数
+// 10. bufsml 保存读取数据或者长度。例如 read 和 sendfile
 #define UV_FS_PRIVATE_FIELDS                                                  \
   const char *new_path;                                                       \
   uv_file file;                                                               \
@@ -447,6 +460,8 @@ typedef struct {
   struct uv__work work_req;                                                   \
   uv_buf_t bufsml[4];                                                         \
 
+// 
+// work_req 是提交给 worker queue 执行的
 #define UV_WORK_PRIVATE_FIELDS                                                \
   struct uv__work work_req;
 

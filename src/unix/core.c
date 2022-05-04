@@ -224,6 +224,9 @@ int uv__getiovmax(void) {
   static int iovmax_cached = -1;
   int iovmax;
 
+  // 从GCC4.1.版本之后就引入了内置的原子操作函数，可对x86_64架构（除此之外还有其他类型）1、2、4、8字节的integer scalar或pointer使用，可有效减少对锁机制的使用进一步而提升效率，这些函数以__sync开头，而在GCC4.7之后的版本，这些函数被替换成了以__atomic开头的一系列函数，新编写的代码应该使用这个新的写法。
+  // 使用内置的原子操作函数可以部分代替需要锁机制处理的场景，比如高并发场景，锁机制的存在对于高并发是一种效率损失，是为了线程安全之类的原因而做出的取舍，在可以使用内置原子操作的时候建议使用该操作，以提升并发程序的性能
+  // 读取 iovmax_cached，有的线程可能实时修改了它
   iovmax = uv__load_relaxed(&iovmax_cached);
   if (iovmax != -1)
     return iovmax;

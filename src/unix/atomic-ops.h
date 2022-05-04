@@ -13,6 +13,8 @@
  * OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  */
 
+// libuv 用到的原子操作
+
 #ifndef UV_ATOMIC_OPS_H_
 #define UV_ATOMIC_OPS_H_
 
