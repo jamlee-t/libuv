@@ -81,7 +81,7 @@ static void uv__stream_io(uv_loop_t* loop, uv__io_t* w, unsigned int events);
 static void uv__write_callbacks(uv_stream_t* stream);
 static size_t uv__write_req_size(uv_write_t* req);
 
-
+// tcp 就调用 uv__stream_init 初始化流。底层会初始化 1 个 io wacher, 它的 fd 暂时设置为 -1.
 void uv__stream_init(uv_loop_t* loop,
                      uv_stream_t* stream,
                      uv_handle_type type) {
@@ -109,7 +109,7 @@ void uv__stream_init(uv_loop_t* loop,
          */
         err = uv__open_cloexec("/", O_RDONLY);
     if (err >= 0)
-      loop->emfile_fd = err;
+      loop->emfile_fd = err; // emfile_fd 是 empty file fd
   }
 
 #if defined(__APPLE__)
@@ -402,18 +402,20 @@ failed_malloc:
 }
 #endif /* defined(__APPLE__) */
 
-
+// 打开流。目前流的类型只有 tcp。
 int uv__stream_open(uv_stream_t* stream, int fd, int flags) {
 #if defined(__APPLE__)
   int enable;
 #endif
 
+  // 如果流是已经打开过的, 返回错误
   if (!(stream->io_watcher.fd == -1 || stream->io_watcher.fd == fd))
     return UV_EBUSY;
 
   assert(fd >= 0);
   stream->flags |= flags;
 
+  // 流的类型是 tcp，检查流的 flag
   if (stream->type == UV_TCP) {
     if ((stream->flags & UV_HANDLE_TCP_NODELAY) && uv__tcp_nodelay(fd, 1))
       return UV__ERR(errno);
@@ -524,7 +526,7 @@ static int uv__emfile_trick(uv_loop_t* loop, int accept_fd) {
 # define UV_DEC_BACKLOG(w) /* no-op */
 #endif /* defined(UV_HAVE_KQUEUE) */
 
-
+// tcp handle 是 server 的情况下，io 分到这个函数。
 void uv__server_io(uv_loop_t* loop, uv__io_t* w, unsigned int events) {
   uv_stream_t* stream;
   int err;
@@ -534,6 +536,7 @@ void uv__server_io(uv_loop_t* loop, uv__io_t* w, unsigned int events) {
   assert(stream->accepted_fd == -1);
   assert(!(stream->flags & UV_HANDLE_CLOSING));
 
+  // 启动 stream 的 io watcher。stream->io_watcher 是 tcp 的 socket。这里已经启动过了
   uv__io_start(stream->loop, &stream->io_watcher, POLLIN);
 
   /* connection_cb can close the server socket while we're
@@ -548,7 +551,7 @@ void uv__server_io(uv_loop_t* loop, uv__io_t* w, unsigned int events) {
 #endif /* defined(UV_HAVE_KQUEUE) */
 
     err = uv__accept(uv__stream_fd(stream));
-    if (err < 0) {
+    if (err < 0) { // 如果 accept 失败了
       if (err == UV_EAGAIN || err == UV__ERR(EWOULDBLOCK))
         return;  /* Not an error. */
 
@@ -560,16 +563,16 @@ void uv__server_io(uv_loop_t* loop, uv__io_t* w, unsigned int events) {
         if (err == UV_EAGAIN || err == UV__ERR(EWOULDBLOCK))
           break;
       }
-
+      // 调用 connection_cb，传入 err
       stream->connection_cb(stream, err);
-      continue;
+      continue; // 继续 accept
     }
 
     UV_DEC_BACKLOG(w)
-    stream->accepted_fd = err;
-    stream->connection_cb(stream, 0);
+    stream->accepted_fd = err; // accpet 成功
+    stream->connection_cb(stream, 0); // 调用 connection_cb，err 传入 0
 
-    if (stream->accepted_fd != -1) {
+    if (stream->accepted_fd != -1) { // accpet 成功后，停止accept并且返回
       /* The user hasn't yet accepted called uv_accept() */
       uv__io_stop(loop, &stream->io_watcher, POLLIN);
       return;
@@ -587,7 +590,7 @@ void uv__server_io(uv_loop_t* loop, uv__io_t* w, unsigned int events) {
 
 #undef UV_DEC_BACKLOG
 
-
+// 这里不是真的 accept，这是只是 uv__stream_open。accept 在 uv_server_io 已经做过了。
 int uv_accept(uv_stream_t* server, uv_stream_t* client) {
   int err;
 
@@ -652,13 +655,13 @@ done:
   return err;
 }
 
-
+// 这里没有所谓的 uv_stream_start，从监听开始。
 int uv_listen(uv_stream_t* stream, int backlog, uv_connection_cb cb) {
   int err;
 
   switch (stream->type) {
   case UV_TCP:
-    err = uv_tcp_listen((uv_tcp_t*)stream, backlog, cb);
+    err = uv_tcp_listen((uv_tcp_t*)stream, backlog, cb); // 调用 tcp 的监听函数
     break;
 
   case UV_NAMED_PIPE:

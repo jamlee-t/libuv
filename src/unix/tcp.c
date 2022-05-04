@@ -27,18 +27,20 @@
 #include <assert.h>
 #include <errno.h>
 
-
+// 在 tcp 上创建出来新的 socket。UV_HANDLE_BOUND 标志情况下并会执行bind函数
 static int new_socket(uv_tcp_t* handle, int domain, unsigned long flags) {
   struct sockaddr_storage saddr;
   socklen_t slen;
   int sockfd;
   int err;
 
+  // 新建 socket
   err = uv__socket(domain, SOCK_STREAM, 0);
   if (err < 0)
     return err;
   sockfd = err;
 
+  // uv__stream_open 打开 sockfd。此时 handle 的 fd 在函数中已经设置为了 sockfd
   err = uv__stream_open((uv_stream_t*) handle, sockfd, flags);
   if (err) {
     uv__close(sockfd);
@@ -49,6 +51,8 @@ static int new_socket(uv_tcp_t* handle, int domain, unsigned long flags) {
     /* Bind this new socket to an arbitrary port */
     slen = sizeof(saddr);
     memset(&saddr, 0, sizeof(saddr));
+    // getsockname: Put the local address of FD into *ADDR and its length in *LEN. 
+    // 如在未调用bind函数的TCP客户端程序上，可以通过调用getsockname()函数获取由内核赋予该连接的本地IP地址和本地端口号，还可以在TCP的服务器端accept成功后，通过getpeername()函数来获取当前连接的客户端的IP地址和端口号。
     if (getsockname(uv__stream_fd(handle), (struct sockaddr*) &saddr, &slen)) {
       uv__close(sockfd);
       return UV__ERR(errno);
@@ -73,6 +77,7 @@ static int maybe_new_socket(uv_tcp_t* handle, int domain, unsigned long flags) {
     return 0;
   }
 
+  // uv_tcp_init_ex 中调用时，这里是 -1
   if (uv__stream_fd(handle) != -1) {
 
     if (flags & UV_HANDLE_BOUND) {
@@ -110,7 +115,7 @@ static int maybe_new_socket(uv_tcp_t* handle, int domain, unsigned long flags) {
   return new_socket(handle, domain, flags);
 }
 
-
+// 调用 uv_tcp_init_ex 扩展方法。内部调用 uv__stream_init 初始化。
 int uv_tcp_init_ex(uv_loop_t* loop, uv_tcp_t* tcp, unsigned int flags) {
   int domain;
 
@@ -122,6 +127,7 @@ int uv_tcp_init_ex(uv_loop_t* loop, uv_tcp_t* tcp, unsigned int flags) {
   if (flags & ~0xFF)
     return UV_EINVAL;
 
+  // 对 stream 的字段做了初始化
   uv__stream_init(loop, (uv_stream_t*)tcp, UV_TCP);
 
   /* If anything fails beyond this point we need to remove the handle from
@@ -139,12 +145,12 @@ int uv_tcp_init_ex(uv_loop_t* loop, uv_tcp_t* tcp, unsigned int flags) {
   return 0;
 }
 
-
+// 初始化 tcp handle(也是相当于初始化1个流了)
 int uv_tcp_init(uv_loop_t* loop, uv_tcp_t* tcp) {
   return uv_tcp_init_ex(loop, tcp, AF_UNSPEC);
 }
 
-
+// tcp handle 绑定 1 个 ip 和端口
 int uv__tcp_bind(uv_tcp_t* tcp,
                  const struct sockaddr* addr,
                  unsigned int addrlen,
@@ -193,14 +199,14 @@ int uv__tcp_bind(uv_tcp_t* tcp,
   }
   tcp->delayed_error = UV__ERR(errno);
 
-  tcp->flags |= UV_HANDLE_BOUND;
+  tcp->flags |= UV_HANDLE_BOUND; // 绑定之后设置 UV_HANDLE_BOUND 标志，表示已绑定
   if (addr->sa_family == AF_INET6)
     tcp->flags |= UV_HANDLE_IPV6;
 
   return 0;
 }
 
-
+// 相比较于 uv__tcp_listen, uv__tcp_connect 是 tcp 客户端。
 int uv__tcp_connect(uv_connect_t* req,
                     uv_tcp_t* handle,
                     const struct sockaddr* addr,
@@ -256,8 +262,9 @@ out:
   req->cb = cb;
   req->handle = (uv_stream_t*) handle;
   QUEUE_INIT(&req->queue);
-  handle->connect_req = req;
+  handle->connect_req = req; // 发送 1 个 connect 请求
 
+  // 启动底层的 io watcher
   uv__io_start(handle->loop, &handle->io_watcher, POLLOUT);
 
   if (handle->delayed_error)
@@ -327,7 +334,12 @@ int uv_tcp_close_reset(uv_tcp_t* handle, uv_close_cb close_cb) {
   return 0;
 }
 
-
+// 开始监听流。
+// uv_tcp_t server;
+// uv_tcp_init(loop, &server);
+// uv_ip4_addr("0.0.0.0", DEFAULT_PORT, &addr);
+// uv_tcp_bind(&server, (const struct sockaddr*)&addr, 0);
+// int r = uv_listen((uv_stream_t*) &server, DEFAULT_BACKLOG, on_new_connection);
 int uv_tcp_listen(uv_tcp_t* tcp, int backlog, uv_connection_cb cb) {
   static int single_accept_cached = -1;
   unsigned long flags;

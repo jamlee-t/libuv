@@ -513,6 +513,10 @@ UV_EXTERN int uv_socketpair(int type,
                             int flags0,
                             int flags1);
 
+// 流 handle 的字段定义
+// 1. write_queue_size 写入队列长度
+// 2. alloc_cb 分配回调函数
+// 3. read_cb 读取流的回调函数
 #define UV_STREAM_FIELDS                                                      \
   /* number of bytes queued for writing */                                    \
   size_t write_queue_size;                                                    \
@@ -521,7 +525,7 @@ UV_EXTERN int uv_socketpair(int type,
   /* private */                                                               \
   UV_STREAM_PRIVATE_FIELDS
 
-// JAMLEE: 流处理相关函数
+// JAMLEE: 流处理相关函数，流是抽象类。
 /*
  * uv_stream_t is a subclass of uv_handle_t.
  *

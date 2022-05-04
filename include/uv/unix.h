@@ -241,6 +241,7 @@ typedef struct {
 * 14）async_io_watcher，async_wfd 和 io_watcher 。监听 1 个异步 fd。
 * 15) timer_heap 最小时间堆，用于存储定时器的 handle。
 * 16) timer_counter 定时器触发次数计数。
+* 17）emfile_fd 是 empty file fd, 也就是 /dev/null
 *
 * linux 平台字段
 * uv__io_t inotify_read_watcher;                                              \
@@ -353,7 +354,16 @@ typedef struct {
   uv_handle_t* next_closing;                                                  \
   unsigned int flags;                                                         \
 
-// JAMLEE: 定义 steam 的平台特性
+// JAMLEE: 定义 steam 的平台特定字段。
+// 1. connect_req 流的连接请求。
+// 2. uv_shutdown_t 流的关闭请求。
+// 3. 流对应的 io_watcher。
+// 4. write_queue 流的写入队列，是 request
+// 5. write_completed_queue 流的写入完成队列。
+// 6. connection_cb 流连接时的回调
+// 7. delayed_error 延迟错误
+// 8. accepted_fd 当前连接接受的 fd
+// 9. queued_fds 在队列中的 fd
 #define UV_STREAM_PRIVATE_FIELDS                                              \
   uv_connect_t *connect_req;                                                  \
   uv_shutdown_t *shutdown_req;                                                \
